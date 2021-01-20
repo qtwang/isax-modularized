@@ -380,6 +380,20 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
             }
 #ifdef PROFILING
             leaf_counter_profiling += 1;
+
+            for (unsigned int j = 0; j < index->sax_length; ++j) {
+                clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %d - %d", i, j, node->sax[j],
+                          node->masks[j]);
+            }
+
+            if (config->leaf_compactness) {
+                clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf size %d compactness %f",
+                          i, node->size, getCompactness(node, values, series_length));
+            }
+
+            if (config->log_leaf_only) {
+                continue;
+            }
 #endif
             if (config->lower_bounding) {
                 queryNode(answer, node, values, series_length, saxs, sax_length, breakpoints, scale_factor,
@@ -397,7 +411,6 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
         clog_info(CLOG(CLOGGER_ID), "query %d - resident-leaf approximate search = %ld.%lds", i, time_diff.tv_sec,
                   time_diff.tv_nsec);
 #endif
-
         if ((config->exact_search && !(VALUE_EQ(local_bsf, 0) && answer->size == answer->k)) || node == NULL) {
 #ifdef FINE_TIMING
             clock_code = clock_gettime(CLK_ID, &start_timestamp);
@@ -429,15 +442,28 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #endif
 
             if (node == NULL) {
+                node = leaves[leaf_indices[0]];
+                leaf_distances[leaf_indices[0]] = VALUE_MAX;
 #ifdef PROFILING
                 leaf_counter_profiling += 1;
+
+                for (unsigned int j = 0; j < index->sax_length; ++j) {
+                    clog_info(CLOG(CLOGGER_ID), "query %d - nearest leaf segment %d = %d - %d", i, j, node->sax[j],
+                              node->masks[j]);
+                }
+
+                if (config->leaf_compactness) {
+                    clog_info(CLOG(CLOGGER_ID), "query %d - nearest leaf size %d compactness %f", i, node->size,
+                              getCompactness(node, values, series_length));
+                }
+
+                if (config->log_leaf_only) {
+                    continue;
+                }
 #endif
 #ifdef FINE_TIMING
                 clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-                node = leaves[leaf_indices[0]];
-                leaf_distances[leaf_indices[0]] = VALUE_MAX;
-
                 if (config->lower_bounding) {
                     queryNode(answer, node, values, series_length, saxs, sax_length, breakpoints, scale_factor,
                               query_values, query_summarization, local_m256_fetched_cache);
@@ -468,11 +494,6 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #ifdef PROFILING
                 clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax",
                           i + querySet->query_size, l2square_counter_profiling, sum2sax_counter_profiling);
-
-                if (config->leaf_compactness) {
-                    clog_info(CLOG(CLOGGER_ID), "query %d - node size %d compactness %f",
-                              i + querySet->query_size, node->size, getCompactness(node, values, series_length));
-                }
 #endif
 #ifdef FINE_TIMING
                 clock_code = clock_gettime(CLK_ID, &start_timestamp);

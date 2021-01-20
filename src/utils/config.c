@@ -32,6 +32,7 @@ const struct option longopts[] = {
         {"series_limitations",              required_argument, 0,    24},
         {"leaf_compactness",                no_argument,       0,    25},
         {"not_lower_bounding",              no_argument,       0,    26},
+        {"log_leaf_only",                   no_argument,       0,    27},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -184,6 +185,9 @@ Config *initializeConfig(int argc, char **argv) {
                 break;
             case 26:
                 config->lower_bounding = false;
+                break;
+            case 27:
+                config->log_leaf_only = true;
                 break;
             default:
                 exit(EXIT_FAILURE);
