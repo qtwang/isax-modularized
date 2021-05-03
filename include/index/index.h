@@ -30,6 +30,7 @@ typedef struct Index {
     SAXWord const *saxs;
     Value const *breakpoints;
     Value const *summarizations;
+    ssize_t *pos2id;
 
     unsigned int sax_length;
     unsigned int sax_cardinality;

@@ -33,6 +33,7 @@ const struct option longopts[] = {
         {"leaf_compactness",                no_argument,       0,    25},
         {"not_lower_bounding",              no_argument,       0,    26},
         {"log_leaf_only",                   no_argument,       0,    27},
+        {"with_id",                         no_argument,       0,    28},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -103,6 +104,7 @@ Config *initializeConfig(int argc, char **argv) {
 
     config->leaf_compactness = false;
     config->lower_bounding = true;
+    config->with_id = false;
 
     char *string_parts;
     int opt, longindex = 0;
@@ -188,6 +190,9 @@ Config *initializeConfig(int argc, char **argv) {
                 break;
             case 27:
                 config->log_leaf_only = true;
+                break;
+            case 28:
+                config->with_id = true;
                 break;
             default:
                 exit(EXIT_FAILURE);

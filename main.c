@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
 
     Index *index = initializeIndex(config);
     buildIndex(config, index);
-    finalizeIndex(index);
+    finalizeIndex(config, index);
 
 #ifdef TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);

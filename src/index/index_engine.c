@@ -380,7 +380,7 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
 }
 
 
-void finalizeIndex(Index *index) {
+void finalizeIndex(Config const *config, Index *index) {
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
@@ -400,6 +400,16 @@ void finalizeIndex(Index *index) {
     }
 
     assert(counter == index->database_size);
+
+    if (config->with_id) {
+        index->pos2id = aligned_alloc(sizeof(ssize_t), sizeof(ssize_t) * index->database_size);
+
+        for (unsigned int i = 0; i < index->database_size; ++i) {
+            index->pos2id[permutation[i]] = i;
+        }
+    } else {
+        index->pos2id = NULL;
+    }
 
     permute((Value *) index->values, (SAXWord *) index->saxs, permutation, (ssize_t) index->database_size,
             index->series_length, index->sax_length);
