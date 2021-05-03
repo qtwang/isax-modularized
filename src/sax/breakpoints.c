@@ -184,6 +184,28 @@ Value const *getAdhocBreakpoints8(Value const *summarizations, size_t size, unsi
 }
 
 
+Value const *getSharedAdhocBreakpoints8(Value const *summarizations, size_t size, unsigned int num_segments,
+                                        unsigned int num_threads) {
+    Value *breakpoints = aligned_alloc(64, sizeof(Value) * OFFSETS_BY_SEGMENTS[num_segments]);
+
+    Value *values = malloc(sizeof(Value) * size * num_segments);
+    memcpy(values, summarizations, sizeof(Value) * size * num_segments);
+    qsort(values, size, sizeof(Value), VALUE_COMPARE);
+
+    for (unsigned int i = 1; i < num_segments; ++i) {
+        extractBreakpoints8(breakpoints + OFFSETS_BY_SEGMENTS[i], values, size * num_segments);
+    }
+
+    free(values);
+
+#ifdef PROFILING
+    profileBreakpoints(breakpoints, num_segments);
+#endif
+
+    return breakpoints;
+}
+
+
 Value const *getNormalBreakpoints8(unsigned int num_segments) {
     Value *breakpoints = aligned_alloc(256, sizeof(Value) * OFFSETS_BY_SEGMENTS[num_segments]);
 

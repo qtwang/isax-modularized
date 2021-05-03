@@ -33,6 +33,7 @@ const struct option longopts[] = {
         {"leaf_compactness",                no_argument,       0,    25},
         {"not_lower_bounding",              no_argument,       0,    26},
         {"log_leaf_only",                   no_argument,       0,    27},
+        {"share_breakpoints",               no_argument,       0,    28},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -88,6 +89,7 @@ Config *initializeConfig(int argc, char **argv) {
     config->scale_factor = -1;
 
     config->use_adhoc_breakpoints = false;
+    config->share_breakpoints = false;
     config->exact_search = false;
     config->sort_leaves = false;
     config->split_by_summarizations = false;
@@ -189,6 +191,9 @@ Config *initializeConfig(int argc, char **argv) {
             case 27:
                 config->log_leaf_only = true;
                 break;
+            case 28:
+                config->share_breakpoints = true;
+                break;
             default:
                 exit(EXIT_FAILURE);
         }
@@ -236,6 +241,7 @@ void logConfig(Config const *config) {
     clog_info(CLOG(CLOGGER_ID), "config - sax_length = %u", config->sax_length);
     clog_info(CLOG(CLOGGER_ID), "config - sax_cardinality = %d", config->sax_cardinality);
     clog_info(CLOG(CLOGGER_ID), "config - adhoc_breakpoints = %d", config->use_adhoc_breakpoints);
+    clog_info(CLOG(CLOGGER_ID), "config - share_breakpoints = %d", config->share_breakpoints);
 
     clog_info(CLOG(CLOGGER_ID), "config - exact_search = %d", config->exact_search);
     clog_info(CLOG(CLOGGER_ID), "config - k = %d", config->k);

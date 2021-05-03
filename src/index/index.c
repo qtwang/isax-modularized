@@ -111,8 +111,13 @@ Index *initializeIndex(Config const *config) {
 #endif
 
     if (config->use_adhoc_breakpoints) {
-        index->breakpoints = getAdhocBreakpoints8(summarizations, config->database_size, config->sax_length,
-                                                  config->max_threads);
+        if (config->share_breakpoints) {
+            index->breakpoints = getSharedAdhocBreakpoints8(summarizations, config->database_size, config->sax_length,
+                                                            config->max_threads);
+        } else {
+            index->breakpoints = getAdhocBreakpoints8(summarizations, config->database_size, config->sax_length,
+                                                      config->max_threads);
+        }
     } else {
         index->breakpoints = getNormalBreakpoints8(config->sax_length);
     }

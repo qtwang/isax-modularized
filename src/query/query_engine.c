@@ -381,12 +381,12 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #ifdef PROFILING
             leaf_counter_profiling += 1;
 
-            for (unsigned int j = 0; j < index->sax_length; ++j) {
-                clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %d - %d", i, j, node->sax[j],
-                          node->masks[j]);
-            }
-
             if (config->leaf_compactness) {
+                for (unsigned int j = 0; j < index->sax_length; ++j) {
+                    clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %d - %d", i, j, node->sax[j],
+                              node->masks[j]);
+                }
+
                 clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf size %d compactness %f",
                           i, node->size, getCompactness(node, values, series_length));
             }
