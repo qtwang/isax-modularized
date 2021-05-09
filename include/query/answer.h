@@ -25,7 +25,8 @@ typedef struct Answer {
 
 Answer *initializeAnswer(Config const *config);
 
-void cleanAnswer(Answer *answer);
+void resetAnswer(Answer *answer);
+void resetAnswerBy(Answer *answer, Value initial_bsf_distance);
 
 void freeAnswer(Answer *answer);
 

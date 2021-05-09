@@ -84,9 +84,15 @@ Answer *initializeAnswer(Config const *config) {
 }
 
 
-void cleanAnswer(Answer *answer) {
+void resetAnswer(Answer *answer) {
     answer->size = 0;
     answer->distances[0] = VALUE_MAX;
+}
+
+
+void resetAnswerBy(Answer *answer, Value initial_bsf_distance) {
+    answer->size = 1;
+    answer->distances[0] = initial_bsf_distance;
 }
 
 
@@ -99,8 +105,8 @@ void freeAnswer(Answer *answer) {
 
 
 void logAnswer(unsigned int query_id, Answer *answer) {
-    if (answer->size < 2) {
-        clog_info(CLOG(CLOGGER_ID), "query %d - %d / %luNN = %f", query_id, 0, answer->k, answer->distances[0]);
+    if (answer->size == 0) {
+        clog_info(CLOG(CLOGGER_ID), "query %d NO closer neighbors than %f", query_id, answer->distances[0]);
     } else {
         for (unsigned int i = 0; i < answer->size; ++i) {
             clog_info(CLOG(CLOGGER_ID), "query %d - %d / %luNN = %f", query_id, i, answer->k, answer->distances[i]);

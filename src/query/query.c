@@ -24,6 +24,16 @@ QuerySet *initializeQuery(Config const *config, Index const *index) {
 
     queries->values = (Value const *) values;
 
+    if (config->query_bsf_distance_filepath != NULL) {
+        Value *initial_bsf_distances = aligned_alloc(64, sizeof(Value) * config->query_size);
+        FILE *file_bsf_distances = fopen(config->query_bsf_distance_filepath, "rb");
+        read_values = fread(initial_bsf_distances, sizeof(Value), config->query_size, file_bsf_distances);
+        fclose(file_bsf_distances);
+        assert(read_values == config->query_size);
+
+        queries->initial_bsf_distances = (Value const *) initial_bsf_distances;
+    }
+
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
@@ -75,6 +85,7 @@ QuerySet *initializeQuery(Config const *config, Index const *index) {
 void freeQuery(QuerySet *queries) {
     free((Value *) queries->values);
     free((Value *) queries->summarizations);
+    free((Value *) queries->initial_bsf_distances);
     free((Value *) queries->saxs);
     free(queries);
 }

@@ -20,6 +20,7 @@
 typedef struct QuerySet {
     Value const *values;
     Value const *summarizations;
+    Value const *initial_bsf_distances;
     SAXWord const *saxs;
 
     unsigned int query_size;

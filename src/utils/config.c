@@ -34,6 +34,7 @@ const struct option longopts[] = {
         {"not_lower_bounding",              no_argument,       0,    26},
         {"log_leaf_only",                   no_argument,       0,    27},
         {"share_breakpoints",               no_argument,       0,    28},
+        {"query_bsf_filepath",              required_argument, NULL, 29},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -72,6 +73,7 @@ Config *initializeConfig(int argc, char **argv) {
     config->database_summarization_filepath = NULL;
     config->query_filepath = NULL;
     config->query_summarization_filepath = NULL;
+    config->query_bsf_distance_filepath = NULL;
     config->log_filepath = "./isax.log";
 
     config->series_length = 256;
@@ -194,6 +196,9 @@ Config *initializeConfig(int argc, char **argv) {
             case 28:
                 config->share_breakpoints = true;
                 break;
+            case 29:
+                config->query_bsf_distance_filepath = optarg;
+                break;
             default:
                 exit(EXIT_FAILURE);
         }
@@ -233,6 +238,7 @@ void logConfig(Config const *config) {
               config->database_summarization_filepath);
     clog_info(CLOG(CLOGGER_ID), "config - query_filepath = %s", config->query_filepath);
     clog_info(CLOG(CLOGGER_ID), "config - query_summarization_filepath = %s", config->query_summarization_filepath);
+    clog_info(CLOG(CLOGGER_ID), "config - query_bsf_distance_filepath = %s", config->query_bsf_distance_filepath);
     clog_info(CLOG(CLOGGER_ID), "config - log_filepath = %s", config->log_filepath);
 
     clog_info(CLOG(CLOGGER_ID), "config - series_length = %u", config->series_length);

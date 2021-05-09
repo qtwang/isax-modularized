@@ -357,6 +357,12 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
     Node *node;
 
     for (unsigned int i = 0; i < querySet->query_size; ++i) {
+        if (querySet->initial_bsf_distances == NULL) {
+            resetAnswer(answer);
+        } else {
+            resetAnswerBy(answer, querySet->initial_bsf_distances[i]);
+        }
+
         query_values = querySet->values + series_length * i;
         query_summarization = querySet->summarizations + sax_length * i;
         query_sax = querySet->saxs + SAX_SIMD_ALIGNED_LENGTH * i;
@@ -447,12 +453,12 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #ifdef PROFILING
                 leaf_counter_profiling += 1;
 
-                for (unsigned int j = 0; j < index->sax_length; ++j) {
-                    clog_info(CLOG(CLOGGER_ID), "query %d - nearest leaf segment %d = %d - %d", i, j, node->sax[j],
-                              node->masks[j]);
-                }
-
                 if (config->leaf_compactness) {
+                    for (unsigned int j = 0; j < index->sax_length; ++j) {
+                        clog_info(CLOG(CLOGGER_ID), "query %d - nearest leaf segment %d = %d - %d", i, j, node->sax[j],
+                                  node->masks[j]);
+                    }
+
                     clog_info(CLOG(CLOGGER_ID), "query %d - nearest leaf size %d compactness %f", i, node->size,
                               getCompactness(node, values, series_length));
                 }
@@ -525,7 +531,6 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
                   l2square_counter_profiling, sum2sax_counter_profiling, leaf_counter_profiling);
 #endif
         logAnswer(i, answer);
-        cleanAnswer(answer);
     }
 
     for (unsigned int i = 0; i < max_threads; ++i) {
