@@ -361,6 +361,7 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
             resetAnswer(answer);
         } else {
             resetAnswerBy(answer, querySet->initial_bsf_distances[i]);
+            clog_info(CLOG(CLOGGER_ID), "query %d - initial 1bsf = %f", querySet->initial_bsf_distances[i]);
         }
 
         query_values = querySet->values + series_length * i;
