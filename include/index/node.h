@@ -29,6 +29,9 @@ typedef struct Node {
     struct Node *right;
 
     Value compactness;
+
+    Value* upper_envelops;
+    Value* lower_envelops;
 } Node;
 
 

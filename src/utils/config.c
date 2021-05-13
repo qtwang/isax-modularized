@@ -10,31 +10,32 @@ const struct option longopts[] = {
         {"database_summarization_filepath", required_argument, NULL, 2},
         {"query_filepath",                  required_argument, NULL, 3},
         {"query_summarization_filepath",    required_argument, NULL, 4},
-        {"database_size",                   required_argument, 0,    5},
-        {"query_size",                      required_argument, 0,    6},
-        {"sax_length",                      required_argument, 0,    7},
-        {"sax_cardinality",                 required_argument, 0,    8},
-        {"cpu_cores",                       required_argument, 0,    9},
-        {"log_filepath",                    required_argument, 0,    10},
-        {"series_length",                   required_argument, 0,    11},
-        {"adhoc_breakpoints",               no_argument,       0,    12},
-        {"numa_cores",                      required_argument, 0,    13},
-        {"index_block_size",                required_argument, 0,    14},
-        {"leaf_size",                       required_argument, 0,    15},
-        {"initial_leaf_size",               required_argument, 0,    16},
-        {"exact_search",                    no_argument,       0,    17},
-        {"k",                               required_argument, 0,    18},
-        {"sort_leaves",                     no_argument,       0,    19},
-        {"split_by_summarizations",         no_argument,       0,    20},
-        {"scale_factor",                    required_argument, 0,    21},
-        {"skipped_cores",                   required_argument, 0,    22},
-        {"numa_id",                         required_argument, 0,    23},
-        {"series_limitations",              required_argument, 0,    24},
-        {"leaf_compactness",                no_argument,       0,    25},
-        {"not_lower_bounding",              no_argument,       0,    26},
-        {"log_leaf_only",                   no_argument,       0,    27},
-        {"share_breakpoints",               no_argument,       0,    28},
+        {"database_size",                   required_argument, NULL, 5},
+        {"query_size",                      required_argument, NULL, 6},
+        {"sax_length",                      required_argument, NULL, 7},
+        {"sax_cardinality",                 required_argument, NULL, 8},
+        {"cpu_cores",                       required_argument, NULL, 9},
+        {"log_filepath",                    required_argument, NULL, 10},
+        {"series_length",                   required_argument, NULL, 11},
+        {"adhoc_breakpoints",               no_argument,       NULL, 12},
+        {"numa_cores",                      required_argument, NULL, 13},
+        {"index_block_size",                required_argument, NULL, 14},
+        {"leaf_size",                       required_argument, NULL, 15},
+        {"initial_leaf_size",               required_argument, NULL, 16},
+        {"exact_search",                    no_argument,       NULL, 17},
+        {"k",                               required_argument, NULL, 18},
+        {"sort_leaves",                     no_argument,       NULL, 19},
+        {"split_by_summarizations",         no_argument,       NULL, 20},
+        {"scale_factor",                    required_argument, NULL, 21},
+        {"skipped_cores",                   required_argument, NULL, 22},
+        {"numa_id",                         required_argument, NULL, 23},
+        {"series_limitations",              required_argument, NULL, 24},
+        {"leaf_compactness",                no_argument,       NULL, 25},
+        {"not_lower_bounding",              no_argument,       NULL, 26},
+        {"log_leaf_only",                   no_argument,       NULL, 27},
+        {"share_breakpoints",               no_argument,       NULL, 28},
         {"query_bsf_filepath",              required_argument, NULL, 29},
+        {"tighten_leaf",                    no_argument,       NULL, 30},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -107,6 +108,8 @@ Config *initializeConfig(int argc, char **argv) {
 
     config->leaf_compactness = false;
     config->lower_bounding = true;
+
+    config->tighten_leaf = false;
 
     char *string_parts;
     int opt, longindex = 0;
@@ -198,6 +201,9 @@ Config *initializeConfig(int argc, char **argv) {
                 break;
             case 29:
                 config->query_bsf_distance_filepath = optarg;
+                break;
+            case 30:
+                config->tighten_leaf = true;
                 break;
             default:
                 exit(EXIT_FAILURE);

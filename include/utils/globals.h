@@ -47,7 +47,14 @@ inline void getTimeDiff(TimeDiff * t_diff, struct timespec t_start, struct times
 #endif
 
 
+#define FINE_PROFILING
 #define PROFILING
+
+#ifdef FINE_PROFILING
+#ifndef PROFILING
+#define PROFILING
+#endif
+#endif
 
 #ifdef PROFILING
 unsigned int leaf_counter_profiling;

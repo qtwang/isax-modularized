@@ -333,7 +333,8 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
             node->squeezed_masks[i] = 1u;
         }
 
-        memcpy(node->sax, index->saxs + SAX_SIMD_ALIGNED_LENGTH * node->start_id, sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH);
+        memcpy(node->sax, index->saxs + SAX_SIMD_ALIGNED_LENGTH * node->start_id,
+               sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH);
 
         if (node->size > 1) {
             int segments_nonsqueezable = 0;
@@ -347,7 +348,8 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
             }
 
             for (ID i = SAX_SIMD_ALIGNED_LENGTH * (node->start_id + 1);
-                 (i < SAX_SIMD_ALIGNED_LENGTH * (node->start_id + node->size)) && (segments_nonsqueezable < index->sax_length);
+                 (i < SAX_SIMD_ALIGNED_LENGTH * (node->start_id + node->size)) &&
+                 (segments_nonsqueezable < index->sax_length);
                  i += SAX_SIMD_ALIGNED_LENGTH) {
                 for (unsigned j = 0; j < index->sax_length; ++j) {
                     if (segment_flags[j]) {
@@ -368,19 +370,78 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
             }
         }
 
-//#ifdef DEBUG
-//        for (unsigned int i = 0; i < index->sax_length; ++i) {
-//            if (node->squeezed_masks[i] ^ node->masks[i]) {
-//                clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) squeezed %d --> %d", i, node->size,
-//                          node->masks[i], node->squeezed_masks[i]);
-//            }
-//        }
-//#endif
+#ifdef FINE_PROFILING
+        Value const *squeezed_breakpoint, *original_breakpoint;
+        for (unsigned int i = 0; i < index->sax_length; ++i) {
+            if (node->squeezed_masks[i] ^ node->masks[i]) {
+                clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) squeezed %d --> %d", i, node->size,
+                          node->masks[i], node->squeezed_masks[i]);
+
+                squeezed_breakpoint =
+                        index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_MASK[node->squeezed_masks[i]] +
+                        ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[node->squeezed_masks[i]]);
+                original_breakpoint = index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_MASK[node->masks[i]] +
+                                      ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[node->masks[i]]);
+
+                clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) tightened by %f --> %f, %f --> %f",
+                          i, node->size,
+                          *original_breakpoint, *squeezed_breakpoint,
+                          *(original_breakpoint + 1), *(squeezed_breakpoint + 1));
+            }
+        }
+#endif
     }
 }
 
 
-void finalizeIndex(Index *index) {
+void tightenNode(Node *node, Index *index) {
+    if (node->left != NULL) {
+        tightenNode(node->left, index);
+        tightenNode(node->right, index);
+    } else {
+        node->upper_envelops = aligned_alloc(256, sizeof(Value) * index->sax_length);
+        node->lower_envelops = aligned_alloc(256, sizeof(Value) * index->sax_length);
+
+        memcpy(node->upper_envelops, index->summarizations + index->sax_length * node->start_id,
+               sizeof(Value) * index->sax_length);
+        memcpy(node->lower_envelops, index->summarizations + index->sax_length * node->start_id,
+               sizeof(Value) * index->sax_length);
+
+        for (unsigned int i = index->sax_length * node->start_id;
+             i < index->sax_length * (node->start_id + node->size); i += index->sax_length) {
+            for (unsigned int j = 0; j < index->sax_length; ++j) {
+                if (index->summarizations[i + j] > node->upper_envelops[j]) {
+                    node->upper_envelops[j] = index->summarizations[i + j];
+                }
+
+                if (index->summarizations[i + j] < node->lower_envelops[j]) {
+                    node->lower_envelops[j] = index->summarizations[i + j];
+                }
+            }
+        }
+
+#ifdef FINE_PROFILING
+        SAXMask *masks = node->masks;
+        if (node->squeezed_masks != NULL) {
+            masks = node->squeezed_masks;
+        }
+
+        Value const *breakpoint;
+        for (unsigned int i = 0; i < index->sax_length; ++i) {
+            breakpoint = index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_MASK[masks[i]] +
+                         ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[masks[i]]);
+
+            clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) tightened by %f --> %f, %f --> %f",
+                      i, node->size,
+                      *breakpoint, node->lower_envelops[i],
+                      *(breakpoint + 1), node->upper_envelops[i]);
+        }
+#endif
+    }
+}
+
+
+void finalizeIndex(Config const *config, Index *index) {
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
@@ -429,6 +490,24 @@ void finalizeIndex(Index *index) {
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
     clog_info(CLOG(CLOGGER_ID), "index - squeeze nodes = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
+
+    if (config->tighten_leaf) {
+#ifdef FINE_TIMING
+        clock_code = clock_gettime(CLK_ID, &start_timestamp);
+#endif
+
+        for (unsigned int i = 0; i < index->roots_size; ++i) {
+            if (index->roots[i] != NULL) {
+                tightenNode(index->roots[i], index);
+            }
+        }
+
+#ifdef FINE_TIMING
+        clock_code = clock_gettime(CLK_ID, &stop_timestamp);
+        getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
+        clog_info(CLOG(CLOGGER_ID), "index - tighten nodes = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+#endif
+    }
 
     if (index->summarizations != NULL) {
         free((Value *) index->summarizations);

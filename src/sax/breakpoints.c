@@ -71,7 +71,6 @@ void initializeM256IConstants() {
     M256I_BREAKPOINTS8_OFFSETS_8_15 = _mm256_add_epi32(_mm256_load_si256(M256I_OFFSETS_BY_SEGMENTS + 1),
                                                        m256i_cardinality8_offsets);
 
-
     M256I_BREAKPOINTS_OFFSETS_0_7 = _mm256_load_si256(M256I_OFFSETS_BY_SEGMENTS);
     M256I_BREAKPOINTS_OFFSETS_8_15 = _mm256_load_si256(M256I_OFFSETS_BY_SEGMENTS + 1);
 }

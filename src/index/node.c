@@ -13,6 +13,9 @@ Node *initializeNode(SAXWord *sax, SAXMask *masks) {
     node->masks = masks;
     node->squeezed_masks = NULL;
 
+    node->upper_envelops = NULL;
+    node->lower_envelops = NULL;
+
     node->ids = NULL;
     node->start_id = 0;
 
