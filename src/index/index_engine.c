@@ -292,8 +292,7 @@ void fetchPermutation(Node *node, ssize_t *permutation, ID *counter) {
 }
 
 
-void permute(Value *values, SAXWord *saxs, ssize_t *permutation, ssize_t size, unsigned int series_length,
-             unsigned int sax_length) {
+void permute(Value *values, SAXWord *saxs, ssize_t *permutation, ssize_t size, unsigned int series_length) {
     unsigned int series_bytes = sizeof(Value) * series_length, sax_bytes = sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH;
 
     Value *values_cache = aligned_alloc(256, series_bytes);
@@ -374,17 +373,14 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
         Value const *squeezed_breakpoint, *original_breakpoint;
         for (unsigned int i = 0; i < index->sax_length; ++i) {
             if (node->squeezed_masks[i] ^ node->masks[i]) {
-                clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) squeezed %d --> %d", i, node->size,
-                          node->masks[i], node->squeezed_masks[i]);
-
                 squeezed_breakpoint =
                         index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_MASK[node->squeezed_masks[i]] +
                         ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[node->squeezed_masks[i]]);
                 original_breakpoint = index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_MASK[node->masks[i]] +
                                       ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[node->masks[i]]);
 
-                clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) tightened by %f --> %f, %f --> %f",
-                          i, node->size,
+                clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) squeezed %d --> %d (%f --> %f, %f --> %f)",
+                          i, node->size, node->masks[i], node->squeezed_masks[i],
                           *original_breakpoint, *squeezed_breakpoint,
                           *(original_breakpoint + 1), *(squeezed_breakpoint + 1));
             }
@@ -407,8 +403,9 @@ void tightenNode(Node *node, Index *index) {
         memcpy(node->lower_envelops, index->summarizations + index->sax_length * node->start_id,
                sizeof(Value) * index->sax_length);
 
-        for (unsigned int i = index->sax_length * node->start_id;
-             i < index->sax_length * (node->start_id + node->size); i += index->sax_length) {
+        for (unsigned int i = index->sax_length * (node->start_id + 1);
+             i < index->sax_length * (node->start_id + node->size);
+             i += index->sax_length) {
             for (unsigned int j = 0; j < index->sax_length; ++j) {
                 if (index->summarizations[i + j] > node->upper_envelops[j]) {
                     node->upper_envelops[j] = index->summarizations[i + j];
@@ -453,7 +450,7 @@ void finalizeIndex(Config const *config, Index *index) {
 
     for (unsigned int i = 0; i < index->roots_size; ++i) {
         if (index->roots[i]->size == 0 && index->roots[i]->left == NULL) {
-            freeNode(index->roots[i], false, true);;
+            freeNode(index->roots[i], false, true);
             index->roots[i] = NULL;
         } else {
             fetchPermutation(index->roots[i], permutation, &counter);
@@ -463,7 +460,7 @@ void finalizeIndex(Config const *config, Index *index) {
     assert(counter == index->database_size);
 
     permute((Value *) index->values, (SAXWord *) index->saxs, permutation, (ssize_t) index->database_size,
-            index->series_length, index->sax_length);
+            index->series_length);
 
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
@@ -495,13 +492,11 @@ void finalizeIndex(Config const *config, Index *index) {
 #ifdef FINE_TIMING
         clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-
         for (unsigned int i = 0; i < index->roots_size; ++i) {
             if (index->roots[i] != NULL) {
                 tightenNode(index->roots[i], index);
             }
         }
-
 #ifdef FINE_TIMING
         clock_code = clock_gettime(CLK_ID, &stop_timestamp);
         getTimeDiff(&time_diff, start_timestamp, stop_timestamp);

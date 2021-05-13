@@ -124,6 +124,11 @@ void freeNode(Node *node, bool free_mask, bool free_sax) {
             free(node->squeezed_masks);
         }
 
+        if (node->upper_envelops != NULL) {
+            free(node->upper_envelops);
+            free(node->lower_envelops);
+        }
+
         if (free_sax) {
             free(node->sax);
         }

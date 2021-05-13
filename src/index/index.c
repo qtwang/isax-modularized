@@ -142,7 +142,7 @@ Index *initializeIndex(Config const *config) {
     clog_info(CLOG(CLOGGER_ID), "index - calculate SAXs = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
 
-    if (config->split_by_summarizations) {
+    if (config->split_by_summarizations || config->tighten_leaf) {
         index->summarizations = (Value const *) summarizations;
     } else {
         free(summarizations);
