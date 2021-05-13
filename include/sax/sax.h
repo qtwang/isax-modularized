@@ -50,6 +50,9 @@ Value l2SquareValue2SAX8(unsigned int sax_length, Value const *summarizations, S
 Value l2SquareValue2SAXByMaskSIMD(unsigned int sax_length, Value const *summarizations, SAXWord const *sax,
                                   SAXMask const *masks, Value const *breakpoints, Value scale_factor, Value *cache);
 
+Value l2SquareValue2EnvelopSIMD(unsigned int sax_length, Value const *summarizations, Value const *upper_envelops,
+                                Value const *lower_envelops, Value scale_factor, Value *cache);
+
 Value l2SquareValue2SAX8SIMD(unsigned int sax_length, Value const *summarizations, SAXWord const *sax,
                              Value const *breakpoints, Value scale_factor, Value *cache);
 

@@ -213,6 +213,61 @@ Value l2SquareValue2SAXByMaskSIMD(unsigned int sax_length, Value const *summariz
 }
 
 
+Value l2SquareValue2EnvelopSIMD(unsigned int sax_length, Value const *summarizations, Value const *upper_envelops,
+                                Value const *lower_envelops, Value scale_factor, Value *cache) {
+    __m256 m256_summarizations = _mm256_loadu_ps(summarizations);
+    __m256 m256_floor_breakpoints = _mm256_loadu_ps(upper_envelops);
+    __m256 m256_ceiling_breakpoints = _mm256_loadu_ps(lower_envelops);
+
+    __m256 m256_floor_diff = _mm256_sub_ps(m256_floor_breakpoints, m256_summarizations);
+    __m256 m256_floor_indicator = _mm256_cmp_ps(m256_summarizations, m256_floor_breakpoints, _CMP_LT_OS);
+    __m256 m256_floor_l1 = _mm256_and_ps(m256_floor_diff, m256_floor_indicator);
+
+    __m256 m256_ceiling_diff = _mm256_sub_ps(m256_summarizations, m256_ceiling_breakpoints);
+    __m256 m256_ceiling_indicator = _mm256_cmp_ps(m256_summarizations, m256_ceiling_breakpoints, _CMP_GT_OS);
+    __m256 m256_ceiling_l1 = _mm256_and_ps(m256_ceiling_diff, m256_ceiling_indicator);
+
+    __m256 m256_l1 = _mm256_add_ps(m256_floor_l1, m256_ceiling_l1);
+    __m256 m256_l2square = _mm256_mul_ps(m256_l1, m256_l1);
+
+    if (sax_length == 16) {
+        m256_summarizations = _mm256_loadu_ps(summarizations + 8);
+        m256_floor_breakpoints = _mm256_loadu_ps(upper_envelops + 8);
+        m256_ceiling_breakpoints = _mm256_loadu_ps(lower_envelops + 8);
+
+        m256_floor_diff = _mm256_sub_ps(m256_floor_breakpoints, m256_summarizations);
+        m256_floor_indicator = _mm256_cmp_ps(m256_summarizations, m256_floor_breakpoints, _CMP_LT_OS);
+        m256_floor_l1 = _mm256_and_ps(m256_floor_diff, m256_floor_indicator);
+
+        m256_ceiling_diff = _mm256_sub_ps(m256_summarizations, m256_ceiling_breakpoints);
+        m256_ceiling_indicator = _mm256_cmp_ps(m256_summarizations, m256_ceiling_breakpoints, _CMP_GT_OS);
+        m256_ceiling_l1 = _mm256_and_ps(m256_ceiling_diff, m256_ceiling_indicator);
+
+        m256_l1 = _mm256_add_ps(m256_floor_l1, m256_ceiling_l1);
+        m256_l2square = _mm256_fmadd_ps(m256_l1, m256_l1, m256_l2square);
+    }
+
+    m256_l2square = _mm256_hadd_ps(m256_l2square, m256_l2square);
+    _mm256_store_ps(cache, _mm256_hadd_ps(m256_l2square, m256_l2square));
+
+    Value distance = cache[0] + cache[4];
+
+    if (sax_length == 8 || sax_length == 16) {
+        return distance * scale_factor;
+    }
+
+    for (unsigned int i = 8; i < sax_length; ++i) {
+        if (VALUE_L(summarizations[i], lower_envelops[i])) {
+            distance += (lower_envelops[i] - summarizations[i]) * (lower_envelops[i] - summarizations[i]);
+        } else if (VALUE_G(summarizations[i], upper_envelops[i])) {
+            distance += (summarizations[i] - upper_envelops[i]) * (summarizations[i] - upper_envelops[i]);
+        }
+    }
+
+    return distance * scale_factor;
+}
+
+
 Value l2SquareValue2SAX8SIMD(unsigned int sax_length, Value const *summarizations, SAXWord const *sax,
                              Value const *breakpoints, Value scale_factor, Value *cache) {
     __m256i m256i_sax_packed = _mm256_cvtepu8_epi16(_mm_load_si128((__m128i const *) sax));

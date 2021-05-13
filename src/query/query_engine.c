@@ -207,9 +207,18 @@ void *leafThread(void *cache) {
             if (leaf == resident_node) {
                 leaf_distances[i] = VALUE_MAX;
             } else {
-                leaf_distances[i] = l2SquareValue2SAXByMaskSIMD(sax_length, query_summarization, leaf->sax,
-                                                                leaf->squeezed_masks, breakpoints, scale_factor,
-                                                                m256_fetched_cache);
+                if (leaf->upper_envelops != NULL) {
+                    leaf_distances[i] = l2SquareValue2EnvelopSIMD(sax_length, query_summarization, leaf->upper_envelops,
+                                                                  leaf->lower_envelops, scale_factor, m256_fetched_cache);
+                } else if (leaf->squeezed_masks != NULL) {
+                    leaf_distances[i] = l2SquareValue2SAXByMaskSIMD(sax_length, query_summarization, leaf->sax,
+                                                                    leaf->squeezed_masks, breakpoints, scale_factor,
+                                                                    m256_fetched_cache);
+                } else {
+                    leaf_distances[i] = l2SquareValue2SAXByMaskSIMD(sax_length, query_summarization, leaf->sax,
+                                                                    leaf->masks, breakpoints, scale_factor,
+                                                                    m256_fetched_cache);
+                }
             }
         }
     }
@@ -388,12 +397,14 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #ifdef PROFILING
             leaf_counter_profiling += 1;
 
-            if (config->leaf_compactness) {
-                for (unsigned int j = 0; j < index->sax_length; ++j) {
-                    clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %d - %d", i, j, node->sax[j],
-                              node->masks[j]);
-                }
+#ifdef FINE_PROFILING
+            for (unsigned int j = 0; j < index->sax_length; ++j) {
+                clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %d - %d", i, j, node->sax[j],
+                          node->masks[j]);
+            }
+#endif
 
+            if (config->leaf_compactness) {
                 clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf size %d compactness %f",
                           i, node->size, getCompactness(node, values, series_length));
             }
