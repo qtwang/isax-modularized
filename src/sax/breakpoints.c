@@ -175,7 +175,7 @@ Value const *getAdhocBreakpoints8(Value const *summarizations, size_t size, unsi
         pthread_join(threads[i], NULL);
     }
 
-#ifdef PROFILING
+#ifdef FINE_PROFILING
     profileBreakpoints(breakpoints, num_segments);
 #endif
 
