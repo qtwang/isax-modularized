@@ -16,6 +16,7 @@
 #include "clog.h"
 #include "answer.h"
 #include "sort.h"
+#include "str.h"
 
 
 void conductQueries(QuerySet const *querySet, Index const *index, Config const *config);

@@ -334,24 +334,6 @@ void permute(Value *values, Value *summarizations, SAXWord *saxs, ssize_t *permu
 }
 
 
-char *char2bin(SAXWord symbol) {
-    size_t bits = sizeof(SAXWord) * CHAR_BIT;
-
-    char *str = malloc(bits + 1);
-    if (!str) {
-        return NULL;
-    }
-    str[bits] = 0;
-
-    // type punning because signed shift is implementation-defined
-    for (unsigned u = *(unsigned *) &symbol; bits--; u >>= 1) {
-        str[bits] = u & 1 ? '1' : '0';
-    }
-
-    return str;
-}
-
-
 void squeezeNode(Node *node, Index *index, bool *segment_flags) {
     if (node->left != NULL) {
         squeezeNode(node->left, index, segment_flags);

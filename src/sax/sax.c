@@ -216,8 +216,8 @@ Value l2SquareValue2SAXByMaskSIMD(unsigned int sax_length, Value const *summariz
 Value l2SquareValue2EnvelopSIMD(unsigned int sax_length, Value const *summarizations, Value const *upper_envelops,
                                 Value const *lower_envelops, Value scale_factor, Value *cache) {
     __m256 m256_summarizations = _mm256_loadu_ps(summarizations);
-    __m256 m256_floor_breakpoints = _mm256_loadu_ps(upper_envelops);
-    __m256 m256_ceiling_breakpoints = _mm256_loadu_ps(lower_envelops);
+    __m256 m256_floor_breakpoints = _mm256_loadu_ps(lower_envelops);
+    __m256 m256_ceiling_breakpoints = _mm256_loadu_ps(upper_envelops);
 
     __m256 m256_floor_diff = _mm256_sub_ps(m256_floor_breakpoints, m256_summarizations);
     __m256 m256_floor_indicator = _mm256_cmp_ps(m256_summarizations, m256_floor_breakpoints, _CMP_LT_OS);
@@ -232,8 +232,8 @@ Value l2SquareValue2EnvelopSIMD(unsigned int sax_length, Value const *summarizat
 
     if (sax_length == 16) {
         m256_summarizations = _mm256_loadu_ps(summarizations + 8);
-        m256_floor_breakpoints = _mm256_loadu_ps(upper_envelops + 8);
-        m256_ceiling_breakpoints = _mm256_loadu_ps(lower_envelops + 8);
+        m256_floor_breakpoints = _mm256_loadu_ps( lower_envelops + 8);
+        m256_ceiling_breakpoints = _mm256_loadu_ps(upper_envelops + 8);
 
         m256_floor_diff = _mm256_sub_ps(m256_floor_breakpoints, m256_summarizations);
         m256_floor_indicator = _mm256_cmp_ps(m256_summarizations, m256_floor_breakpoints, _CMP_LT_OS);

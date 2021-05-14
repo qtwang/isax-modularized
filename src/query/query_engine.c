@@ -399,8 +399,8 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 
 #ifdef FINE_PROFILING
             for (unsigned int j = 0; j < index->sax_length; ++j) {
-                clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %d - %d", i, j, node->sax[j],
-                          node->masks[j]);
+                clog_info(CLOG(CLOGGER_ID), "query %d - resident leaf segment %d = %s - %d", i, j,
+                          char2bin(node->sax[j]), BITS_BY_MASK[node->masks[j]]);
             }
 #endif
 

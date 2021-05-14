@@ -10,7 +10,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <limits.h>
 
 #include "globals.h"
 #include "index.h"
@@ -18,6 +17,8 @@
 #include "config.h"
 #include "breakpoints.h"
 #include "paa.h"
+#include "str.h"
+
 
 void buildIndex(Config const *config, Index *index);
 
