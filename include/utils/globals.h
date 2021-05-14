@@ -11,7 +11,7 @@
 #include <pthread.h>
 
 
-//#define DEBUG
+#define DEBUG
 
 
 #define FINE_TIMING

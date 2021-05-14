@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <limits.h>
 
 #include "globals.h"
 #include "index.h"

@@ -35,7 +35,8 @@ const struct option longopts[] = {
         {"log_leaf_only",                   no_argument,       NULL, 27},
         {"share_breakpoints",               no_argument,       NULL, 28},
         {"query_bsf_filepath",              required_argument, NULL, 29},
-        {"tighten_leaf",                    no_argument,       NULL, 30},
+        {"squeeze_leaves",                  no_argument,       NULL, 30},
+        {"peel_leaves",                     no_argument,       NULL, 31},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -109,7 +110,8 @@ Config *initializeConfig(int argc, char **argv) {
     config->leaf_compactness = false;
     config->lower_bounding = true;
 
-    config->tighten_leaf = false;
+    config->squeeze_leaves = false;
+    config->peel_leaves = false;
 
     char *string_parts;
     int opt, longindex = 0;
@@ -203,7 +205,10 @@ Config *initializeConfig(int argc, char **argv) {
                 config->query_bsf_distance_filepath = optarg;
                 break;
             case 30:
-                config->tighten_leaf = true;
+                config->squeeze_leaves = true;
+                break;
+            case 31:
+                config->peel_leaves = true;
                 break;
             default:
                 exit(EXIT_FAILURE);
@@ -262,6 +267,8 @@ void logConfig(Config const *config) {
     clog_info(CLOG(CLOGGER_ID), "config - initial_leaf_size = %u", config->initial_leaf_size);
     clog_info(CLOG(CLOGGER_ID), "config - sort_leaves = %d", config->sort_leaves);
     clog_info(CLOG(CLOGGER_ID), "config - split_by_summarizations = %d", config->split_by_summarizations);
+    clog_info(CLOG(CLOGGER_ID), "config - squeeze_leaves = %d", config->squeeze_leaves);
+    clog_info(CLOG(CLOGGER_ID), "config - peel_leaves = %d", config->peel_leaves);
 
     clog_info(CLOG(CLOGGER_ID), "config - cpu_cores = %d", config->cpu_cores);
     clog_info(CLOG(CLOGGER_ID), "config - numa_cores = %d", config->numa_cores);

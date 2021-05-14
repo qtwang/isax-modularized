@@ -32,6 +32,8 @@ QuerySet *initializeQuery(Config const *config, Index const *index) {
         assert(read_values == config->query_size);
 
         queries->initial_bsf_distances = (Value const *) initial_bsf_distances;
+    } else {
+        queries->initial_bsf_distances = NULL;
     }
 
 #ifdef FINE_TIMING

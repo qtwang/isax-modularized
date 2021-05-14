@@ -334,18 +334,36 @@ void permute(Value *values, Value *summarizations, SAXWord *saxs, ssize_t *permu
 }
 
 
+char *char2bin(SAXWord symbol) {
+    size_t bits = sizeof(SAXWord) * CHAR_BIT;
+
+    char *str = malloc(bits + 1);
+    if (!str) {
+        return NULL;
+    }
+    str[bits] = 0;
+
+    // type punning because signed shift is implementation-defined
+    for (unsigned u = *(unsigned *) &symbol; bits--; u >>= 1) {
+        str[bits] = u & 1 ? '1' : '0';
+    }
+
+    return str;
+}
+
+
 void squeezeNode(Node *node, Index *index, bool *segment_flags) {
     if (node->left != NULL) {
         squeezeNode(node->left, index, segment_flags);
         squeezeNode(node->right, index, segment_flags);
     } else {
+        memcpy(node->sax, index->saxs + SAX_SIMD_ALIGNED_LENGTH * node->start_id,
+               sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH);
+
         node->squeezed_masks = aligned_alloc(256, sizeof(SAXMask) * index->sax_length);
         for (unsigned int i = 0; i < index->sax_length; ++i) {
             node->squeezed_masks[i] = 1u;
         }
-
-        memcpy(node->sax, index->saxs + SAX_SIMD_ALIGNED_LENGTH * node->start_id,
-               sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH);
 
         if (node->size > 1) {
             int segments_nonsqueezable = 0;
@@ -359,14 +377,15 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
             }
 
             for (ID i = SAX_SIMD_ALIGNED_LENGTH * (node->start_id + 1);
-                 (i < SAX_SIMD_ALIGNED_LENGTH * (node->start_id + node->size)) &&
-                 (segments_nonsqueezable < index->sax_length);
+                 i < SAX_SIMD_ALIGNED_LENGTH * (node->start_id + node->size) &&
+                 segments_nonsqueezable < index->sax_length;
                  i += SAX_SIMD_ALIGNED_LENGTH) {
                 for (unsigned j = 0; j < index->sax_length; ++j) {
                     if (segment_flags[j]) {
-                        for (unsigned int k = BITS_BY_MASK[node->masks[j]] + 1;
-                             k < BITS_BY_MASK[node->squeezed_masks[j]];
-                             ++k) {
+                        for (unsigned int k = BITS_BY_MASK[node->squeezed_masks[j]];
+                             // whether k < BITS_BY_MASK[node->squeezed_masks[j]] will be pre-fetched? or why not?
+                             k > BITS_BY_MASK[node->masks[j]];
+                             --k) {
                             if (((unsigned) index->saxs[i + j] ^ (unsigned) node->sax[j]) & MASKS_BY_BITS[k]) {
                                 node->squeezed_masks[j] = MASKS_BY_BITS[k - 1];
 
@@ -381,6 +400,10 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
             }
         }
 
+        // TODO remove sharing masks of left/right child nodes
+//        memcpy(node->sax, node->squeezed_masks, sizeof(SAXWord) * index->sax_length);
+//        free(node->squeezed_masks);
+
 #ifdef FINE_PROFILING
         Value const *squeezed_breakpoint, *original_breakpoint;
         for (unsigned int i = 0; i < index->sax_length; ++i) {
@@ -392,36 +415,45 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
                                       ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[node->masks[i]]);
 
                 clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) squeezed %d -> %d (%f -> %f, %f -> %f)",
-                          i, node->size, node->masks[i], node->squeezed_masks[i],
+                          i, node->size, BITS_BY_MASK[node->masks[i]], BITS_BY_MASK[node->squeezed_masks[i]],
                           *original_breakpoint, *squeezed_breakpoint,
                           *(original_breakpoint + 1), *(squeezed_breakpoint + 1));
+
+#ifdef DEBUG
+                for (ID j = SAX_SIMD_ALIGNED_LENGTH * (node->start_id + 1);
+                     j < SAX_SIMD_ALIGNED_LENGTH * (node->start_id + node->size);
+                     j += SAX_SIMD_ALIGNED_LENGTH) {
+                    if (((unsigned) index->saxs[j + i] ^ (unsigned) node->sax[i]) &
+                        PREFIX_MASKS_BY_MASK[node->squeezed_masks[i]]) {
+                        clog_error(CLOG(CLOGGER_ID),
+                                   "index - segment %d of series %d unbounded %s (!= %s), masked %d (<- %d)",
+                                   i, j - node->start_id,
+                                   char2bin(index->saxs[j + i]), char2bin(node->sax[i]),
+                                   BITS_BY_MASK[node->squeezed_masks[i]], BITS_BY_MASK[node->masks[i]]);
+                    }
+                }
             }
-        }
 #endif
+        }
     }
+#endif
 }
 
 
-void tightenNode(Node *node, Index *index) {
+void peelNode(Node *node, Index *index) {
     if (node->left != NULL) {
-        tightenNode(node->left, index);
-        tightenNode(node->right, index);
+        peelNode(node->left, index);
+        peelNode(node->right, index);
     } else {
         node->upper_envelops = aligned_alloc(256, sizeof(Value) * index->sax_length);
         node->lower_envelops = aligned_alloc(256, sizeof(Value) * index->sax_length);
 
-//        memcpy(node->upper_envelops, index->summarizations + index->sax_length * node->start_id,
-//               sizeof(Value) * index->sax_length);
-//        memcpy(node->lower_envelops, index->summarizations + index->sax_length * node->start_id,
-//               sizeof(Value) * index->sax_length);
+        memcpy(node->upper_envelops, index->summarizations + index->sax_length * node->start_id,
+               sizeof(Value) * index->sax_length);
+        memcpy(node->lower_envelops, index->summarizations + index->sax_length * node->start_id,
+               sizeof(Value) * index->sax_length);
 
-        Value const *pt_summarizations = index->summarizations + index->sax_length * node->start_id;
-        for (unsigned int i = 0; i < index->sax_length; ++i) {
-            node->upper_envelops[i] = *(pt_summarizations + i);
-            node->lower_envelops[i] = *(pt_summarizations + i);
-        }
-
-        for (pt_summarizations += index->sax_length;
+        for (Value const *pt_summarizations = index->summarizations + index->sax_length * (node->start_id + 1);
              pt_summarizations < index->summarizations + index->sax_length * (node->start_id + node->size);
              pt_summarizations += index->sax_length) {
             for (unsigned int j = 0; j < index->sax_length; ++j) {
@@ -474,7 +506,8 @@ void finalizeIndex(Config const *config, Index *index) {
     }
 
     assert(counter == index->database_size);
-    permute((Value *) index->values, (Value *) index->summarizations, (SAXWord *) index->saxs, permutation, (ssize_t) index->database_size,
+    permute((Value *) index->values, (Value *) index->summarizations, (SAXWord *) index->saxs, permutation,
+            (ssize_t) index->database_size,
             index->series_length, index->sax_length);
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
@@ -484,30 +517,32 @@ void finalizeIndex(Config const *config, Index *index) {
 
     free(permutation);
 
+    if (config->squeeze_leaves) {
 #ifdef FINE_TIMING
-    clock_code = clock_gettime(CLK_ID, &start_timestamp);
+        clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-    bool *segment_flags = malloc(sizeof(bool) * index->sax_length);
-    for (unsigned int i = 0; i < index->roots_size; ++i) {
-        if (index->roots[i] != NULL) {
-            squeezeNode(index->roots[i], index, segment_flags);
+        bool *segment_flags = malloc(sizeof(bool) * index->sax_length);
+        for (unsigned int i = 0; i < index->roots_size; ++i) {
+            if (index->roots[i] != NULL) {
+                squeezeNode(index->roots[i], index, segment_flags);
+            }
         }
-    }
-    free(segment_flags);
+        free(segment_flags);
 #ifdef FINE_TIMING
-    clock_code = clock_gettime(CLK_ID, &stop_timestamp);
-    getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "index - squeeze nodes = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+        clock_code = clock_gettime(CLK_ID, &stop_timestamp);
+        getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
+        clog_info(CLOG(CLOGGER_ID), "index - squeeze nodes = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
+    }
 
     // make sure tightening leaves comes after permutation
-    if (config->tighten_leaf) {
+    if (config->peel_leaves) {
 #ifdef FINE_TIMING
         clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
         for (unsigned int i = 0; i < index->roots_size; ++i) {
             if (index->roots[i] != NULL) {
-                tightenNode(index->roots[i], index);
+                peelNode(index->roots[i], index);
             }
         }
 #ifdef FINE_TIMING

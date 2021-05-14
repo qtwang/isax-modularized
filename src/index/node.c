@@ -102,7 +102,7 @@ Value getCompactness(Node *leaf_node, Value const *values, unsigned int series_l
         outer_current_series += series_length;
     }
 
-    leaf_node->compactness = sum / (double) (leaf_node->size * (leaf_node->size - 1) / 2.);
+    leaf_node->compactness = (Value) (sum / (double) (leaf_node->size * (leaf_node->size - 1) / 2.));
 
     free(local_m256_fetched_cache);
     return leaf_node->compactness;
@@ -120,25 +120,19 @@ void freeNode(Node *node, bool free_mask, bool free_sax) {
             free(node->masks);
         }
 
-        if (node->squeezed_masks != NULL) {
-            free(node->squeezed_masks);
-        }
-
-        if (node->upper_envelops != NULL) {
-            free(node->upper_envelops);
-            free(node->lower_envelops);
-        }
-
         if (free_sax) {
             free(node->sax);
         }
 
-        if (node->ids != NULL) {
-            free(node->ids);
-        }
+        free(node->squeezed_masks);
+        free(node->upper_envelops);
+        free(node->lower_envelops);
+
+        free(node->ids);
 
         pthread_mutex_destroy(node->lock);
         free(node->lock);
+
         free(node);
     }
 }

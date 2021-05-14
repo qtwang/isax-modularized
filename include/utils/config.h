@@ -62,7 +62,9 @@ typedef struct Config {
     bool leaf_compactness;
     bool lower_bounding;
     bool log_leaf_only;
-    bool tighten_leaf;
+
+    bool squeeze_leaves;
+    bool peel_leaves;
 } Config;
 
 
