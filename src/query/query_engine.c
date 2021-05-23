@@ -65,14 +65,13 @@ void queryNodeThreadCore(Answer *answer, Node const *node, Value const *values, 
                         pos = node->start_id +
                               (current_series - values - series_length * node->start_id) / series_length;
                         updateBSFWithID(answer, local_l2Square, pos2id[pos]);
-                        local_bsf = getBSF(answer);
                     }
                 } else {
                     checkNUpdateBSF(answer, local_l2Square);
-                    local_bsf = getBSF(answer);
                 }
 
                 pthread_rwlock_unlock(lock);
+                local_bsf = getBSF(answer);
             }
         }
     }
@@ -102,14 +101,13 @@ void queryNodeNotBoundingThreadCore(Answer *answer, Node const *node, Value cons
                 if (checkBSF(answer, local_l2Square)) {
                     pos = node->start_id + (current_series - values - series_length * node->start_id) / series_length;
                     updateBSFWithID(answer, local_l2Square, pos2id[pos]);
-                    local_bsf = getBSF(answer);
                 }
             } else {
                 checkNUpdateBSF(answer, local_l2Square);
-                local_bsf = getBSF(answer);
             }
 
             pthread_rwlock_unlock(lock);
+            local_bsf = getBSF(answer);
         }
     }
 }
@@ -292,12 +290,12 @@ void queryNode(Answer *answer, Node const *node, Value const *values, unsigned i
                         pos = node->start_id +
                               (outer_current_series - values - series_length * node->start_id) / series_length;
                         updateBSFWithID(answer, local_l2Square, pos2id[pos]);
-                        local_bsf = getBSF(answer);
                     }
                 } else {
                     checkNUpdateBSF(answer, local_l2Square);
-                    local_bsf = getBSF(answer);
                 }
+
+                local_bsf = getBSF(answer);
             }
         }
 
@@ -326,14 +324,13 @@ void queryNodeNotBounding(Answer *answer, Node const *node, Value const *values,
                     pos = node->start_id +
                           (outer_current_series - values - series_length * node->start_id) / series_length;
                     updateBSFWithID(answer, local_l2Square, pos2id[pos]);
-                    local_bsf = getBSF(answer);
                 }
             } else {
                 checkNUpdateBSF(answer, local_l2Square);
-                local_bsf = getBSF(answer);
             }
         }
 
+        local_bsf = getBSF(answer);
         outer_current_series += series_length;
     }
 }
