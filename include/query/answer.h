@@ -17,6 +17,7 @@ typedef struct Answer {
     pthread_rwlock_t *lock;
 
     Value *distances; // max-heap
+    ssize_t *ids; // auxiliary max-heap
 
     unsigned int size;
     unsigned int k;

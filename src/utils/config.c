@@ -37,6 +37,7 @@ const struct option longopts[] = {
         {"query_bsf_filepath",              required_argument, NULL, 29},
         {"squeeze_leaves",                  no_argument,       NULL, 30},
         {"peel_leaves",                     no_argument,       NULL, 31},
+        {"with_id",                         no_argument,       NULL,    32},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -109,6 +110,7 @@ Config *initializeConfig(int argc, char **argv) {
 
     config->leaf_compactness = false;
     config->lower_bounding = true;
+    config->with_id = false;
 
     config->squeeze_leaves = false;
     config->peel_leaves = false;
@@ -209,6 +211,9 @@ Config *initializeConfig(int argc, char **argv) {
                 break;
             case 31:
                 config->peel_leaves = true;
+                break;
+            case 32:
+                config->with_id = true;
                 break;
             default:
                 exit(EXIT_FAILURE);

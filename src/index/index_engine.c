@@ -488,9 +488,21 @@ void finalizeIndex(Config const *config, Index *index) {
     }
 
     assert(counter == index->database_size);
+
+    if (config->with_id) {
+        index->pos2id = aligned_alloc(sizeof(ssize_t), sizeof(ssize_t) * index->database_size);
+
+        for (unsigned int i = 0; i < index->database_size; ++i) {
+            index->pos2id[permutation[i]] = i;
+        }
+    } else {
+        index->pos2id = NULL;
+    }
+
     permute((Value *) index->values, (Value *) index->summarizations, (SAXWord *) index->saxs, permutation,
             (ssize_t) index->database_size,
             index->series_length, index->sax_length);
+
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);

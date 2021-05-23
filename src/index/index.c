@@ -157,6 +157,7 @@ void freeIndex(Index *index) {
     free((Value *) index->values);
     free((SAXWord *) index->saxs);
     free((Value *) index->breakpoints);
+    free(index->pos2id); // which might be NULL
 
     bool first_root = true;
     for (unsigned int i = 0; i < index->roots_size; ++i) {

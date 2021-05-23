@@ -89,6 +89,7 @@ typedef size_t ID;
 #define VALUE_EQ(left, right) (VALUE_LEQ(left, right) && VALUE_GEQ(left, right))
 #define VALUE_NEQ(left, right) (VALUE_L(left, right) || VALUE_G(left, right))
 
+#define SWAP(T, a, b) do { T tmp = (a); (a) = (b); (b) = (tmp); } while (0)
 
 static inline int VALUE_COMPARE(void const *left, void const *right) {
     if (VALUE_L(*(Value *) left, *(Value *) right)) {
