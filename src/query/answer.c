@@ -15,16 +15,12 @@ void heapifyTopDown(Value *heap, unsigned int parent, unsigned int size) {
         }
 
         if (VALUE_L(heap[parent], heap[next])) {
-            Value tmp = heap[next];
-            heap[next] = heap[parent];
-            heap[parent] = tmp;
+            SWAP(Value, heap[parent], heap[next]);
 
             heapifyTopDown(heap, next, size);
         }
     } else if (left < size && VALUE_L(heap[parent], heap[left])) {
-        Value tmp = heap[left];
-        heap[left] = heap[parent];
-        heap[parent] = tmp;
+        SWAP(Value, heap[parent], heap[left]);
     }
 }
 
@@ -34,9 +30,7 @@ void heapifyBottomUp(Value *heap, unsigned int child) {
         unsigned int parent = (child - 1) >> 1u;
 
         if (VALUE_L(heap[parent], heap[child])) {
-            Value tmp = heap[child];
-            heap[child] = heap[parent];
-            heap[parent] = tmp;
+            SWAP(Value, heap[parent], heap[child]);
         }
 
         heapifyBottomUp(heap, parent);
@@ -98,9 +92,9 @@ void heapifyBottomUpWithID(Value *heap, ssize_t *ids, unsigned int child) {
         if (VALUE_L(heap[parent], heap[child])) {
             SWAP(Value, heap[parent], heap[child]);
             SWAP(ssize_t, ids[parent], ids[child]);
-        }
 
-        heapifyBottomUp(heap, parent);
+            heapifyBottomUpWithID(heap, ids, parent);
+        }
     }
 }
 
