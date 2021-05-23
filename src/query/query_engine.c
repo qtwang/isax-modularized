@@ -277,6 +277,8 @@ void queryNode(Answer *answer, Node const *node, Value const *values, unsigned i
         local_l2SquareSAX8 = l2SquareValue2SAX8SIMD(sax_length, query_summarization, outer_current_sax,
                                                     breakpoints, scale_factor, m256_fetched_cache);
 
+        // a strong assumption is made that other NNs will be found outside this node
+        // the most previous implementation should also use answer->size < answer->k here
         if (VALUE_G(local_bsf, local_l2SquareSAX8)) {
 #ifdef PROFILING
             l2square_counter_profiling += 1;
@@ -318,6 +320,8 @@ void queryNodeNotBounding(Answer *answer, Node const *node, Value const *values,
         local_l2Square = l2SquareEarlySIMD(series_length, query_values, outer_current_series, local_bsf,
                                            m256_fetched_cache);
 
+        // a strong assumption is made that other NNs will be found outside this node
+        // the most previous implementation should also use answer->size < answer->k here
         if (VALUE_G(local_bsf, local_l2Square)) {
             if (pos2id) {
                 if (checkBSF(answer, local_l2Square)) {
