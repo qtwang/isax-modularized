@@ -279,7 +279,7 @@ void queryNode(Answer *answer, Node const *node, Value const *values, unsigned i
 
         // a strong assumption is made that other NNs will be found outside this node
         // the most previous implementation should also use answer->size < answer->k here
-        if (VALUE_G(local_bsf, local_l2SquareSAX8)) {
+        if (answer->size < answer->k || VALUE_G(local_bsf, local_l2SquareSAX8)) {
 #ifdef PROFILING
             l2square_counter_profiling += 1;
 #endif
@@ -322,7 +322,7 @@ void queryNodeNotBounding(Answer *answer, Node const *node, Value const *values,
 
         // a strong assumption is made that other NNs will be found outside this node
         // the most previous implementation should also use answer->size < answer->k here
-        if (VALUE_G(local_bsf, local_l2Square)) {
+        if (answer->size < answer->k || VALUE_G(local_bsf, local_l2Square)) {
             if (pos2id) {
                 if (checkBSF(answer, local_l2Square)) {
                     pos = node->start_id +
