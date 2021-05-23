@@ -35,6 +35,9 @@ Value getBSF(Answer * answer);
 
 int checkNUpdateBSF(Answer * answer, Value distance);
 
+int checkBSF(Answer *answer, Value distance);
+void updateBSFWithID(Answer *answer, Value distance, ssize_t id);
+
 void logAnswer(unsigned int query_id, Answer *answer);
 
 

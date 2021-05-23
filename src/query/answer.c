@@ -176,17 +176,17 @@ void freeAnswer(Answer *answer) {
 
 void logAnswer(unsigned int query_id, Answer *answer) {
     if (answer->size == 0) {
-        clog_info(CLOG(CLOGGER_ID), "query %d NO closer neighbors than %f", query_id, answer->distances[0]);
+        clog_info(CLOG(CLOGGER_ID), "query %d NO closer neighbors than initial %f", query_id, answer->distances[0]);
+    }
+
     if (answer->ids) {
         for (unsigned int i = 0; i < answer->size; ++i) {
-            clog_info(CLOG(CLOGGER_ID),
-                      "query %d - %d / %luNN = %f@%d",
+            clog_info(CLOG(CLOGGER_ID), "query %d - %d / %luNN = %f@%d",
                       query_id, i, answer->k, answer->distances[i], answer->ids[i]);
         }
     } else {
         for (unsigned int i = 0; i < answer->size; ++i) {
-            clog_info(CLOG(CLOGGER_ID),
-                      "query %d - %d / %luNN = %f",
+            clog_info(CLOG(CLOGGER_ID), "query %d - %d / %luNN = %f",
                       query_id, i, answer->k, answer->distances[i]);
         }
     }

@@ -34,10 +34,11 @@ typedef struct QueryCache {
 void queryNodeThreadCore(Answer *answer, Node const *node, Value const *values, unsigned int series_length,
                          SAXWord const *saxs, unsigned int sax_length, Value const *breakpoints, Value scale_factor,
                          Value const *query_values, Value const *query_summarization, Value *m256_fetched_cache,
-                         pthread_rwlock_t *lock) {
+                         pthread_rwlock_t *lock, ssize_t *pos2id) {
     Value const *current_series;
     SAXWord const *current_sax;
     Value local_l2SquareSAX, local_l2Square, local_bsf = getBSF(answer);
+    unsigned long pos;
 
     for (current_series = values + series_length * node->start_id,
                  current_sax = saxs + SAX_SIMD_ALIGNED_LENGTH * node->start_id;
@@ -59,8 +60,17 @@ void queryNodeThreadCore(Answer *answer, Node const *node, Value const *values, 
             if (VALUE_G(local_bsf, local_l2Square)) {
                 pthread_rwlock_wrlock(lock);
 
-                checkNUpdateBSF(answer, local_l2Square);
-                local_bsf = getBSF(answer);
+                if (pos2id) {
+                    if (checkBSF(answer, local_l2Square)) {
+                        pos = node->start_id +
+                              (current_series - values - series_length * node->start_id) / series_length;
+                        updateBSFWithID(answer, local_l2Square, pos2id[pos]);
+                        local_bsf = getBSF(answer);
+                    }
+                } else {
+                    checkNUpdateBSF(answer, local_l2Square);
+                    local_bsf = getBSF(answer);
+                }
 
                 pthread_rwlock_unlock(lock);
             }
@@ -70,9 +80,11 @@ void queryNodeThreadCore(Answer *answer, Node const *node, Value const *values, 
 
 
 void queryNodeNotBoundingThreadCore(Answer *answer, Node const *node, Value const *values, unsigned int series_length,
-                                    Value const *query_values, Value *m256_fetched_cache, pthread_rwlock_t *lock) {
+                                    Value const *query_values, Value *m256_fetched_cache, pthread_rwlock_t *lock,
+                                    ssize_t *pos2id) {
     Value const *current_series;
     Value local_l2Square, local_bsf = getBSF(answer);
+    unsigned long pos;
 
     for (current_series = values + series_length * node->start_id;
          current_series < values + series_length * (node->start_id + node->size);
@@ -86,8 +98,16 @@ void queryNodeNotBoundingThreadCore(Answer *answer, Node const *node, Value cons
         if (VALUE_G(local_bsf, local_l2Square)) {
             pthread_rwlock_wrlock(lock);
 
-            checkNUpdateBSF(answer, local_l2Square);
-            local_bsf = getBSF(answer);
+            if (pos2id) {
+                if (checkBSF(answer, local_l2Square)) {
+                    pos = node->start_id + (current_series - values - series_length * node->start_id) / series_length;
+                    updateBSFWithID(answer, local_l2Square, pos2id[pos]);
+                    local_bsf = getBSF(answer);
+                }
+            } else {
+                checkNUpdateBSF(answer, local_l2Square);
+                local_bsf = getBSF(answer);
+            }
 
             pthread_rwlock_unlock(lock);
         }
@@ -101,6 +121,7 @@ void *queryThread(void *cache) {
     Value const *values = queryCache->index->values;
     SAXWord const *saxs = queryCache->index->saxs;
     Value const *breakpoints = queryCache->index->breakpoints;
+    ssize_t *pos2id = queryCache->index->pos2id;
 
     unsigned int series_length = queryCache->index->series_length;
     unsigned int sax_length = queryCache->index->sax_length;
@@ -158,10 +179,11 @@ void *queryThread(void *cache) {
 #endif
                 if (lower_bounding) {
                     queryNodeThreadCore(answer, leaves[leaf_id], values, series_length, saxs, sax_length, breakpoints,
-                                        scale_factor, query_values, query_summarization, m256_fetched_cache, lock);
+                                        scale_factor, query_values, query_summarization, m256_fetched_cache, lock,
+                                        pos2id);
                 } else {
                     queryNodeNotBoundingThreadCore(answer, leaves[leaf_id], values, series_length, query_values,
-                                                   m256_fetched_cache, lock);
+                                                   m256_fetched_cache, lock, pos2id);
                 }
             } else if (sort_leaves && lower_bounding) {
                 return NULL;
@@ -209,7 +231,8 @@ void *leafThread(void *cache) {
             } else {
                 if (leaf->upper_envelops != NULL) {
                     leaf_distances[i] = l2SquareValue2EnvelopSIMD(sax_length, query_summarization, leaf->upper_envelops,
-                                                                  leaf->lower_envelops, scale_factor, m256_fetched_cache);
+                                                                  leaf->lower_envelops, scale_factor,
+                                                                  m256_fetched_cache);
                 } else if (leaf->squeezed_masks != NULL) {
                     leaf_distances[i] = l2SquareValue2SAXByMaskSIMD(sax_length, query_summarization, leaf->sax,
                                                                     leaf->squeezed_masks, breakpoints, scale_factor,
@@ -242,10 +265,12 @@ void enqueueLeaf(Node *node, Node **leaves, unsigned int *num_leaves) {
 
 void queryNode(Answer *answer, Node const *node, Value const *values, unsigned int series_length,
                SAXWord const *saxs, unsigned int sax_length, Value const *breakpoints, Value scale_factor,
-               Value const *query_values, Value const *query_summarization, Value *m256_fetched_cache) {
+               Value const *query_values, Value const *query_summarization, Value *m256_fetched_cache,
+               ssize_t *pos2id) {
     Value const *outer_current_series = values + series_length * node->start_id;
     SAXWord const *outer_current_sax = saxs + SAX_SIMD_ALIGNED_LENGTH * node->start_id;
     Value local_l2SquareSAX8, local_l2Square, local_bsf = getBSF(answer);
+    unsigned long pos;
 
     while (outer_current_series < values + series_length * (node->start_id + node->size)) {
 #ifdef PROFILING
@@ -262,8 +287,17 @@ void queryNode(Answer *answer, Node const *node, Value const *values, unsigned i
                                                m256_fetched_cache);
 
             if (VALUE_G(local_bsf, local_l2Square)) {
-                checkNUpdateBSF(answer, local_l2Square);
-                local_bsf = getBSF(answer);
+                if (pos2id) {
+                    if (checkBSF(answer, local_l2Square)) {
+                        pos = node->start_id +
+                              (outer_current_series - values - series_length * node->start_id) / series_length;
+                        updateBSFWithID(answer, local_l2Square, pos2id[pos]);
+                        local_bsf = getBSF(answer);
+                    }
+                } else {
+                    checkNUpdateBSF(answer, local_l2Square);
+                    local_bsf = getBSF(answer);
+                }
             }
         }
 
@@ -274,9 +308,10 @@ void queryNode(Answer *answer, Node const *node, Value const *values, unsigned i
 
 
 void queryNodeNotBounding(Answer *answer, Node const *node, Value const *values, unsigned int series_length,
-                          Value const *query_values, Value *m256_fetched_cache) {
+                          Value const *query_values, Value *m256_fetched_cache, ssize_t *pos2id) {
     Value const *outer_current_series = values + series_length * node->start_id;
     Value local_l2Square, local_bsf = getBSF(answer);
+    unsigned long pos;
 
     while (outer_current_series < values + series_length * (node->start_id + node->size)) {
 #ifdef PROFILING
@@ -286,8 +321,17 @@ void queryNodeNotBounding(Answer *answer, Node const *node, Value const *values,
                                            m256_fetched_cache);
 
         if (VALUE_G(local_bsf, local_l2Square)) {
-            checkNUpdateBSF(answer, local_l2Square);
-            local_bsf = getBSF(answer);
+            if (pos2id) {
+                if (checkBSF(answer, local_l2Square)) {
+                    pos = node->start_id +
+                          (outer_current_series - values - series_length * node->start_id) / series_length;
+                    updateBSFWithID(answer, local_l2Square, pos2id[pos]);
+                    local_bsf = getBSF(answer);
+                }
+            } else {
+                checkNUpdateBSF(answer, local_l2Square);
+                local_bsf = getBSF(answer);
+            }
         }
 
         outer_current_series += series_length;
@@ -300,6 +344,7 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 
     Value const *values = index->values;
     SAXWord const *saxs = index->saxs;
+    ssize_t *pos2id = index->pos2id;
     Value const *breakpoints = index->breakpoints;
     unsigned int series_length = config->series_length;
     unsigned int sax_length = config->sax_length;
@@ -415,9 +460,10 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #endif
             if (config->lower_bounding) {
                 queryNode(answer, node, values, series_length, saxs, sax_length, breakpoints, scale_factor,
-                          query_values, query_summarization, local_m256_fetched_cache);
+                          query_values, query_summarization, local_m256_fetched_cache, pos2id);
             } else {
-                queryNodeNotBounding(answer, node, values, series_length, query_values, local_m256_fetched_cache);
+                queryNodeNotBounding(answer, node, values, series_length, query_values, local_m256_fetched_cache,
+                                     pos2id);
             }
         } else {
             clog_info(CLOG(CLOGGER_ID), "query %d - no resident node", i);
@@ -484,9 +530,10 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #endif
                 if (config->lower_bounding) {
                     queryNode(answer, node, values, series_length, saxs, sax_length, breakpoints, scale_factor,
-                              query_values, query_summarization, local_m256_fetched_cache);
+                              query_values, query_summarization, local_m256_fetched_cache, pos2id);
                 } else {
-                    queryNodeNotBounding(answer, node, values, series_length, query_values, local_m256_fetched_cache);
+                    queryNodeNotBounding(answer, node, values, series_length, query_values, local_m256_fetched_cache,
+                                         pos2id);
                 }
 
                 if (config->sort_leaves) {
