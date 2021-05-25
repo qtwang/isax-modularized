@@ -183,7 +183,7 @@ void logAnswer(unsigned int query_id, Answer *answer) {
 
     if (answer->ids) {
         for (unsigned int i = 0; i < answer->size; ++i) {
-            clog_info(CLOG(CLOGGER_ID), "query %d - %d / %luNN = %f @ %d",
+            clog_info(CLOG(CLOGGER_ID), "query %d - %d / %luNN = %f by %d",
                       query_id, i, answer->k, answer->distances[i], answer->ids[i]);
         }
     } else {
