@@ -459,7 +459,7 @@ void peelNode(Node *node, Index *index) {
             Value const *breakpoint = index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_MASK[masks[i]] +
                                       ((unsigned int) node->sax[i] >> SHIFTS_BY_MASK[masks[i]]);
 
-            clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) tightened by %f -> %f, %f -> %f",
+            clog_info(CLOG(CLOGGER_ID), "index - segment %d (node.size %d) peeled by %f -> %f, %f -> %f",
                       i, node->size,
                       *breakpoint, node->lower_envelops[i],
                       *(breakpoint + 1), node->upper_envelops[i]);
@@ -542,7 +542,7 @@ void finalizeIndex(Config const *config, Index *index) {
 #ifdef FINE_TIMING
         clock_code = clock_gettime(CLK_ID, &stop_timestamp);
         getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-        clog_info(CLOG(CLOGGER_ID), "index - tighten nodes = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+        clog_info(CLOG(CLOGGER_ID), "index - peel nodes = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
     }
 

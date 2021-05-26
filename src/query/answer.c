@@ -151,7 +151,7 @@ Answer *initializeAnswer(Config const *config) {
 
 
 void resetAnswer(Answer *answer) {
-    answer->size = 0;
+    answer->size = 1;
 
     answer->distances[0] = VALUE_MAX;
 }
