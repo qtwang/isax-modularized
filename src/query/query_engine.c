@@ -555,13 +555,13 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 
             if (config->exact_search && !(VALUE_EQ(local_bsf, 0) && answer->size == answer->k)) {
 #ifdef PROFILING
-                clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax",
+                clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax in 1st leaf",
                           i + querySet->query_size, l2square_counter_profiling, sum2sax_counter_profiling);
 #endif
 #ifdef FINE_TIMING
                 clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-                logAnswer(querySet->query_size + i, answer);
+//                logAnswer(querySet->query_size + i, answer);
 
                 pthread_t query_threads[max_threads];
                 shared_leaf_id = 0;
