@@ -13,9 +13,9 @@ void permuteValues(Value *values, ID *permutation, ID num_segments, ID length_se
         next = i;
 
         while (permutation[next] >= 0) {
-#ifdef DEBUG
-            clog_debug(CLOG(CLOGGER_ID), "permuteValues - %d -> %d", next, permutation[next]);
-#endif
+//#ifdef DEBUG
+//            clog_debug(CLOG(CLOGGER_ID), "permuteValues - %d -> %d", next, permutation[next]);
+//#endif
             memcpy(values_cache, values + length_segment * i, num_bytes);
             memcpy(values + length_segment * i, values + length_segment * permutation[next], num_bytes);
             memcpy(values + length_segment * permutation[next], values_cache, num_bytes);
@@ -121,8 +121,11 @@ MultIndex *initializeMultIndex(Config const *config) {
 #endif
         permuteValues(values, permutation, config->database_size, config->series_length);
         multindex->values = (Value const *) values;
-
-        free(offset_iterators);
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - permuted");
+#endif
+        // TODO why this triggered 'local variable may point to deallocated memory'
+//        free(offset_iterators);
     } else {
         clog_error(CLOG(CLOGGER_ID), "not yet support internal clustering");
         exit(EXIT_FAILURE);
