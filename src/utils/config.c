@@ -297,4 +297,8 @@ void logConfig(Config const *config) {
     clog_info(CLOG(CLOGGER_ID), "config - skipped_cores = %d", config->skipped_cores);
     clog_info(CLOG(CLOGGER_ID), "config - numa_id = %d", config->numa_id);
     clog_info(CLOG(CLOGGER_ID), "config - index_block_size = %u", config->index_block_size);
+
+    clog_info(CLOG(CLOGGER_ID), "config - num_indices = %d", config->num_indices);
+    clog_info(CLOG(CLOGGER_ID), "config - cluster_centers_filepath = %s", config->cluster_centers_filepath);
+    clog_info(CLOG(CLOGGER_ID), "config - cluster_indicators_filepath = %s", config->cluster_indicators_filepath);
 }
