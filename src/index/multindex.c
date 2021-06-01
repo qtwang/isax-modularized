@@ -5,9 +5,8 @@
 #include "multindex.h"
 
 
-void permute(void *values, ID *permutation, ID num_segments, unsigned int bytesize_value, unsigned int length_segment) {
-    unsigned int bytesize_segment = bytesize_value * length_segment;
-    Value *values_cache = aligned_alloc(256, bytesize_segment);
+void permute(void *values, ID *permutation, ID num_segments, ID bytesize_segment) {
+    void *values_cache = malloc(bytesize_segment);
 
     for (ID i = 0, next, tmp; i < num_segments; ++i) {
         next = i;
@@ -82,7 +81,6 @@ MultIndex *initializeMultIndex(Config const *config) {
 #ifdef DEBUG
         clog_debug(CLOG(CLOGGER_ID), "multindex - load indicators");
 #endif
-
         multindex->cluster_sizes = malloc(sizeof(ID) * config->num_indices);
         for (unsigned int i = 0; i < config->num_indices; ++i) {
             multindex->cluster_sizes[i] = 0;
@@ -96,20 +94,28 @@ MultIndex *initializeMultIndex(Config const *config) {
         for (unsigned int i = 1; i < config->num_indices; ++i) {
             multindex->cluster_offsets[i] = multindex->cluster_offsets[i - 1] + multindex->cluster_sizes[i - 1];
         }
-
+        assert(config->database_size ==
+               multindex->cluster_offsets[config->num_indices - 1] + multindex->cluster_sizes[config->num_indices - 1]);
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - derive cluster sizes and offsets");
+#endif
         ID *offset_iterators = malloc(sizeof(ID) * config->num_indices);
         memcpy(offset_iterators, multindex->cluster_offsets, sizeof(ID) * config->num_indices);
+
         permutation = malloc(sizeof(ID) * config->database_size);
         for (unsigned int i = 0; i < config->database_size; ++i) {
             permutation[i] = offset_iterators[indicators[i]];
             offset_iterators[indicators[i]] += 1;
         }
+
         multindex->inverse_permutation = malloc(sizeof(ID) * config->database_size);
         for (unsigned int i = 0; i < config->database_size; ++i) {
             multindex->inverse_permutation[permutation[i]] = i;
         }
-
-        permute(values, permutation, config->database_size, sizeof(Value), config->series_length);
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - derive permutations");
+#endif
+        permute(values, permutation, config->database_size, sizeof(Value) * config->series_length);
         multindex->values = (Value const *) values;
 
         free(offset_iterators);
