@@ -56,7 +56,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "index - load series = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+    clog_info(CLOG(CLOGGER_ID), "multindex - load series = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
     ID *permutation = NULL;
@@ -115,7 +115,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "index - load clusters = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+    clog_info(CLOG(CLOGGER_ID), "multindex - load clusters = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
     Value *summarizations = aligned_alloc(256, sizeof(Value) * config->sax_length * config->database_size);
@@ -141,6 +141,12 @@ MultIndex *initializeMultIndex(Config const *config) {
         free(permutation);
         permutation = NULL;
     }
+#ifdef DEBUG
+    clock_code = clock_gettime(CLK_ID, &stop_timestamp);
+    getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
+    clog_debug(CLOG(CLOGGER_ID), "multindex - calculate summarizations in %ld.%lds",
+               time_diff.tv_sec, time_diff.tv_nsec);
+#endif
 #ifdef FINE_TIMING
     char *method4summarizations = "load";
     if (config->database_summarization_filepath == NULL) {
@@ -148,7 +154,7 @@ MultIndex *initializeMultIndex(Config const *config) {
     }
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "index - %s summarizations = %ld.%lds", method4summarizations, time_diff.tv_sec,
+    clog_info(CLOG(CLOGGER_ID), "multindex - %s summarizations = %ld.%lds", method4summarizations, time_diff.tv_sec,
               time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
@@ -181,7 +187,9 @@ MultIndex *initializeMultIndex(Config const *config) {
             multindex->indices[i]->roots[j] = initializeNode(rootID2SAX(j, config->sax_length, config->sax_cardinality),
                                                              root_masks);
         }
-
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - initialize roots for subindex %d", i);
+#endif
         if (config->use_adhoc_breakpoints) {
             if (config->share_breakpoints) {
                 multindex->indices[i]->breakpoints = getSharedAdhocBreakpoints8(multindex->indices[i]->summarizations,
@@ -195,16 +203,21 @@ MultIndex *initializeMultIndex(Config const *config) {
         } else {
             multindex->indices[i]->breakpoints = getNormalBreakpoints8(config->sax_length);
         }
-
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - get breakpoint table for subindex %d", i);
+#endif
         summarizations2SAX16(saxs + config->sax_length * multindex->cluster_offsets[i],
-                             summarizations, multindex->indices[i]->breakpoints, config->database_size,
-                             config->sax_length, config->sax_cardinality, config->max_threads);
+                             multindex->indices[i]->summarizations, multindex->indices[i]->breakpoints,
+                             config->database_size, config->sax_length, config->sax_cardinality, config->max_threads);
         multindex->indices[i]->saxs = saxs + config->sax_length * multindex->cluster_offsets[i];
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - get saxs for subindex %d", i);
+#endif
     }
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "index - initialize %d internal indices = %ld.%lds",
+    clog_info(CLOG(CLOGGER_ID), "multindex - initialize %d internal indices = %ld.%lds",
               config->num_indices, time_diff.tv_sec, time_diff.tv_nsec);
 #endif
     if (!config->split_by_summarizations && !config->peel_leaves) {

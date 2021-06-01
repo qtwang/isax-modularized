@@ -310,7 +310,7 @@ void buildMultIndex(Config const *config, MultIndex *multindex) {
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "index - build = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+    clog_info(CLOG(CLOGGER_ID), "multindex - build = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
 }
 
