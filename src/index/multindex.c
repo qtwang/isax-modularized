@@ -70,13 +70,18 @@ MultIndex *initializeMultIndex(Config const *config) {
         assert(read_values == config->series_length * config->num_indices);
 
         multindex->centers = (Value const *) centers;
-
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - load centers");
+#endif
         int32_t *indicators = malloc(sizeof(int32_t) * config->database_size);
 
         file_values = fopen(config->cluster_indicators_filepath, "rb");
         read_values = fread(indicators, sizeof(int32_t), config->database_size, file_values);
         fclose(file_values);
         assert(read_values == config->database_size);
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - load indicators");
+#endif
 
         multindex->cluster_sizes = malloc(sizeof(ID) * config->num_indices);
         for (unsigned int i = 0; i < config->num_indices; ++i) {
