@@ -62,19 +62,19 @@ MultIndex *initializeMultIndex(Config const *config) {
     ID *permutation = NULL;
 
     if (config->cluster_indicators_filepath != NULL && config->cluster_centers_filepath != NULL) {
-        Value *centers = aligned_alloc(256, sizeof(Value) * config->series_length * config->num_indices);
+        Value *centers = aligned_alloc(sizeof(Value), sizeof(Value) * config->series_length * config->num_indices);
 
         file_values = fopen(config->cluster_centers_filepath, "rb");
-        read_values = fread(values, sizeof(Value), config->series_length * config->num_indices, file_values);
+        read_values = fread(centers, sizeof(Value), config->series_length * config->num_indices, file_values);
         fclose(file_values);
         assert(read_values == config->series_length * config->num_indices);
 
         multindex->centers = (Value const *) centers;
 
-        int32_t *indicators = aligned_alloc(256, sizeof(int32_t) * config->database_size);
+        int32_t *indicators = malloc(sizeof(int32_t) * config->database_size);
 
         file_values = fopen(config->cluster_indicators_filepath, "rb");
-        read_values = fread(values, sizeof(int32_t), config->database_size, file_values);
+        read_values = fread(indicators, sizeof(int32_t), config->database_size, file_values);
         fclose(file_values);
         assert(read_values == config->database_size);
 
@@ -89,17 +89,17 @@ MultIndex *initializeMultIndex(Config const *config) {
         multindex->cluster_offsets = malloc(sizeof(ID) * config->num_indices);
         multindex->cluster_offsets[0] = 0;
         for (unsigned int i = 1; i < config->num_indices; ++i) {
-            multindex->cluster_offsets[i] = multindex->cluster_sizes[i - 1];
+            multindex->cluster_offsets[i] = multindex->cluster_offsets[i - 1] + multindex->cluster_sizes[i - 1];
         }
 
         ID *offset_iterators = malloc(sizeof(ID) * config->num_indices);
         memcpy(offset_iterators, multindex->cluster_offsets, sizeof(ID) * config->num_indices);
-        permutation = aligned_alloc(sizeof(ID), sizeof(ID) * config->database_size);
+        permutation = malloc(sizeof(ID) * config->database_size);
         for (unsigned int i = 0; i < config->database_size; ++i) {
             permutation[i] = offset_iterators[indicators[i]];
             offset_iterators[indicators[i]] += 1;
         }
-        multindex->inverse_permutation = aligned_alloc(sizeof(ID), sizeof(ID) * config->database_size);
+        multindex->inverse_permutation = malloc(sizeof(ID) * config->database_size);
         for (unsigned int i = 0; i < config->database_size; ++i) {
             multindex->inverse_permutation[permutation[i]] = i;
         }
