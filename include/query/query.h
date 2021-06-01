@@ -14,6 +14,7 @@
 #include "breakpoints.h"
 #include "sax.h"
 #include "index.h"
+#include "multindex.h"
 #include "clog.h"
 
 
@@ -27,7 +28,7 @@ typedef struct QuerySet {
 } QuerySet;
 
 
-QuerySet *initializeQuery(Config const *config, Index const *index);
+QuerySet *initializeQuery(Config const *config, Index const *index, MultIndex const *multindex);
 
 void freeQuery(QuerySet *queries);
 

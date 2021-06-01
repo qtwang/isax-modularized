@@ -15,7 +15,7 @@ typedef struct MultIndex {
 
     Value const *values;
     SAXWord const *saxs;
-    Value const *breakpoints;
+//    Value const *breakpoints;
     Value const *summarizations;
 
     ID database_size;

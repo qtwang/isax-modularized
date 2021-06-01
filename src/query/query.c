@@ -5,7 +5,7 @@
 #include "query.h"
 
 
-QuerySet *initializeQuery(Config const *config, Index const *index) {
+QuerySet *initializeQuery(Config const *config, Index const *index, MultIndex const *multindex) {
     QuerySet *queries = malloc(sizeof(QuerySet));
 
     queries->query_size = config->query_size;
@@ -70,9 +70,29 @@ QuerySet *initializeQuery(Config const *config, Index const *index) {
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
 
-    queries->saxs = (SAXWord const *) summarizations2SAX16(queries->summarizations, index->breakpoints,
-                                                           queries->query_size, config->sax_length,
-                                                           config->sax_cardinality, config->max_threads);
+    if (index != NULL && multindex == NULL) {
+        SAXWord *saxs = aligned_alloc(128, sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->query_size);
+
+        summarizations2SAX16(saxs, queries->summarizations, index->breakpoints, queries->query_size, config->sax_length,
+                             config->sax_cardinality, config->max_threads);
+
+        queries->saxs = (SAXWord const *) saxs;
+    } else if (index == NULL && multindex != NULL) {
+//        SAXWord *saxs = aligned_alloc(
+//                128, sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->query_size * multindex->num_indices);
+//
+//        for (unsigned int i = 0; i < multindex->num_indices; ++i) {
+//            summarizations2SAX16(saxs + sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->query_size * i,
+//                                 queries->summarizations, multindex->indices[i]->breakpoints, queries->query_size,
+//                                 config->sax_length, config->sax_cardinality, config->max_threads);
+//        }
+
+//        queries->saxs = (SAXWord const *) saxs;
+        queries->saxs = NULL;
+    } else {
+        clog_error(CLOG(CLOGGER_ID), "query - impossible branch of index/multindex");
+        exit(EXIT_FAILURE);
+    }
 
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);

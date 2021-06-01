@@ -68,7 +68,6 @@ int main(int argc, char **argv) {
     log_lock_profiling = malloc(sizeof(pthread_mutex_t));
     assert(pthread_mutex_init(log_lock_profiling, NULL) == 0);
 #endif
-
 #ifdef TIMING
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
@@ -87,12 +86,10 @@ int main(int argc, char **argv) {
 
     clog_info(CLOG(CLOGGER_ID), "query - overall = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
-
 #ifdef PROFILING
     pthread_mutex_destroy(log_lock_profiling);
     free(log_lock_profiling);
 #endif
-
 
     if (config->num_indices == 1) {
         freeIndex(index);

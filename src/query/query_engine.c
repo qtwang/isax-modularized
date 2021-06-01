@@ -607,12 +607,8 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
 #endif
     Answer *answer = initializeAnswer(config);
 
-    Value const *values = multindex->values;
-    SAXWord const *saxs = multindex->saxs;
-    ssize_t *inverse_permutation = multindex->inverse_permutation;
     unsigned int series_length = config->series_length;
     unsigned int sax_length = config->sax_length;
-    unsigned int sax_cardinality = config->sax_cardinality;
     Value scale_factor = config->scale_factor;
 
     unsigned int max_threads = config->max_threads;
