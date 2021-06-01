@@ -5,16 +5,16 @@
 #include "multindex.h"
 
 
-void permute(void *values, ID *permutation, ID num_segments, ID bytesize_segment) {
-    void *values_cache = malloc(bytesize_segment);
+void permuteValues(Value *values, ID *permutation, ID num_segments, ID length_segment) {
+    Value *values_cache = malloc(sizeof(Value) * length_segment);
 
     for (ID i = 0, next, tmp; i < num_segments; ++i) {
         next = i;
 
         while (permutation[next] >= 0) {
-            memcpy(values_cache, values + bytesize_segment * i, bytesize_segment);
-            memcpy(values + bytesize_segment * i, values + bytesize_segment * permutation[next], bytesize_segment);
-            memcpy(values + bytesize_segment * permutation[next], values_cache, bytesize_segment);
+            memcpy(values_cache, values + length_segment * i, length_segment);
+            memcpy(values + length_segment * i, values + length_segment * permutation[next], length_segment);
+            memcpy(values + length_segment * permutation[next], values_cache, length_segment);
 
             tmp = permutation[next];
             permutation[next] -= num_segments;
@@ -115,7 +115,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 #ifdef DEBUG
         clog_debug(CLOG(CLOGGER_ID), "multindex - derive permutations");
 #endif
-        permute(values, permutation, config->database_size, sizeof(Value) * config->series_length);
+        permuteValues(values, permutation, config->database_size, config->series_length);
         multindex->values = (Value const *) values;
 
         free(offset_iterators);
@@ -142,7 +142,7 @@ MultIndex *initializeMultIndex(Config const *config) {
         for (ID i = 0; i < config->database_size; ++i) {
             permutation[i] += config->database_size;
         }
-        permute(summarizations, permutation, config->database_size, sizeof(Value) * config->sax_length);
+        permuteValues(summarizations, permutation, config->database_size, config->sax_length);
     } else {
         summarizations = piecewiseAggregate(multindex->values, config->database_size, config->series_length,
                                             config->sax_length, config->max_threads);
