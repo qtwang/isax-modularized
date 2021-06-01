@@ -55,7 +55,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "multindex - load series = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+    clog_info(CLOG(CLOGGER_ID), "multindex - load series in %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
     ID *permutation = NULL;
@@ -69,18 +69,18 @@ MultIndex *initializeMultIndex(Config const *config) {
         assert(read_values == config->series_length * config->num_indices);
 
         multindex->centers = (Value const *) centers;
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - load centers");
-#endif
+//#ifdef DEBUG
+//        clog_debug(CLOG(CLOGGER_ID), "multindex - load centers");
+//#endif
         int32_t *indicators = malloc(sizeof(int32_t) * config->database_size);
 
         file_values = fopen(config->cluster_indicators_filepath, "rb");
         read_values = fread(indicators, sizeof(int32_t), config->database_size, file_values);
         fclose(file_values);
         assert(read_values == config->database_size);
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - load indicators");
-#endif
+//#ifdef DEBUG
+//        clog_debug(CLOG(CLOGGER_ID), "multindex - load indicators");
+//#endif
         multindex->cluster_sizes = malloc(sizeof(ID) * config->num_indices);
         for (unsigned int i = 0; i < config->num_indices; ++i) {
             multindex->cluster_sizes[i] = 0;
@@ -96,9 +96,9 @@ MultIndex *initializeMultIndex(Config const *config) {
         }
         assert(config->database_size ==
                multindex->cluster_offsets[config->num_indices - 1] + multindex->cluster_sizes[config->num_indices - 1]);
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - derive cluster sizes and offsets");
-#endif
+//#ifdef DEBUG
+//        clog_debug(CLOG(CLOGGER_ID), "multindex - derive cluster sizes and offsets");
+//#endif
         ID *offset_iterators = malloc(sizeof(ID) * config->num_indices);
         memcpy(offset_iterators, multindex->cluster_offsets, sizeof(ID) * config->num_indices);
 
@@ -112,16 +112,16 @@ MultIndex *initializeMultIndex(Config const *config) {
         for (unsigned int i = 0; i < config->database_size; ++i) {
             multindex->inverse_permutation[permutation[i]] = i;
         }
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - derive permutations");
-#endif
+//#ifdef DEBUG
+//        clog_debug(CLOG(CLOGGER_ID), "multindex - derive permutations");
+//#endif
         permuteValues(values, permutation, config->database_size, config->series_length);
         multindex->values = (Value const *) values;
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - permuted");
-#endif
+//#ifdef DEBUG
+//        clog_debug(CLOG(CLOGGER_ID), "multindex - permuted");
+//#endif
         // TODO why this triggered 'local variable may point to deallocated memory'
-//        free(offset_iterators);
+        free(offset_iterators);
     } else {
         clog_error(CLOG(CLOGGER_ID), "not yet support internal clustering");
         exit(EXIT_FAILURE);
@@ -129,7 +129,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_info(CLOG(CLOGGER_ID), "multindex - load clusters = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+    clog_info(CLOG(CLOGGER_ID), "multindex - load clusters in %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
     Value *summarizations = aligned_alloc(256, sizeof(Value) * config->sax_length * config->database_size);
@@ -155,12 +155,6 @@ MultIndex *initializeMultIndex(Config const *config) {
         free(permutation);
         permutation = NULL;
     }
-#ifdef DEBUG
-    clock_code = clock_gettime(CLK_ID, &stop_timestamp);
-    getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
-    clog_debug(CLOG(CLOGGER_ID), "multindex - calculate summarizations in %ld.%lds",
-               time_diff.tv_sec, time_diff.tv_nsec);
-#endif
 #ifdef FINE_TIMING
     char *method4summarizations = "load";
     if (config->database_summarization_filepath == NULL) {
@@ -172,15 +166,17 @@ MultIndex *initializeMultIndex(Config const *config) {
               time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-    multindex->indices = malloc(sizeof(Index) * config->num_indices);
+    multindex->indices = malloc(sizeof(Index *) * config->num_indices);
     if (multindex->indices == NULL) {
         clog_error(CLOG(CLOGGER_ID), "could not allocate memory to initialize the internal indices");
         exit(EXIT_FAILURE);
     }
 
-    SAXWord *saxs = aligned_alloc(128, sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->database_size);
+    SAXWord *saxs = aligned_alloc(sizeof(__m256i), sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->database_size);
 
     for (unsigned int i = 0; i < config->num_indices; ++i) {
+        multindex->indices[i] = malloc(sizeof(Index));
+
         multindex->indices[i]->series_length = config->series_length;
         multindex->indices[i]->sax_length = config->sax_length;
         multindex->indices[i]->sax_cardinality = config->sax_cardinality;
@@ -273,7 +269,10 @@ void freeMultIndex(MultIndex *multindex) {
         }
 
         free(multindex->indices[i]->roots);
+        free(multindex->indices[i]);
     }
+
+    free(multindex->indices);
 }
 
 
