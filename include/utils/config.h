@@ -66,6 +66,12 @@ typedef struct Config {
 
     bool squeeze_leaves;
     bool peel_leaves;
+
+    // TODO support query cluster indicators
+    // TODO support cluster within the indexing procedure
+    unsigned int num_indices;
+    char *cluster_indicators_filepath;
+    char *cluster_centers_filepath;
 } Config;
 
 

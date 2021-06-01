@@ -19,7 +19,8 @@ typedef struct QueryCache {
     Node *resident_node;
 
     ID *shared_leaf_id;
-    unsigned int block_size;
+    unsigned int leaf_block_size;
+    unsigned int query_block_size;
 
     Value *m256_fetched_cache;
     Value scale_factor;
@@ -137,7 +138,7 @@ void *queryThread(void *cache) {
     Value *m256_fetched_cache = queryCache->m256_fetched_cache;
     Value scale_factor = queryCache->scale_factor;
 
-    unsigned int block_size = queryCache->block_size;
+    unsigned int block_size = queryCache->query_block_size;
     unsigned int num_leaves = queryCache->num_leaves;
     ID *shared_index_id = queryCache->shared_leaf_id;
 
@@ -208,7 +209,7 @@ void *leafThread(void *cache) {
     Value scale_factor = queryCache->scale_factor;
     Value *m256_fetched_cache = queryCache->m256_fetched_cache;
 
-    unsigned int block_size = queryCache->block_size;
+    unsigned int block_size = queryCache->leaf_block_size;
     unsigned int num_leaves = queryCache->num_leaves;
     ID *shared_leaf_id = queryCache->shared_leaf_id;
 
@@ -374,8 +375,8 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #endif
 
     unsigned int *leaf_indices = malloc(sizeof(unsigned int) * num_leaves);
-    for (unsigned int i = 0; i < num_leaves; ++i) {
-        leaf_indices[i] = i;
+    for (unsigned int j = 0; j < num_leaves; ++j) {
+        leaf_indices[j] = j;
     }
 
     Value *leaf_distances = malloc(sizeof(Value) * num_leaves);
@@ -429,7 +430,6 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #ifdef FINE_TIMING
         clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-
         node = index->roots[rootSAX2ID(query_sax, sax_length, sax_cardinality)];
         local_bsf = getBSF(answer);
 
@@ -484,7 +484,7 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
                 queryCache[j].query_values = query_values;
                 queryCache[j].query_summarization = query_summarization;
                 queryCache[j].resident_node = node;
-                queryCache[j].block_size = leaf_block_size;
+                queryCache[j].leaf_block_size = leaf_block_size;
 
                 pthread_create(&leaves_threads[j], NULL, leafThread, (void *) &queryCache[j]);
             }
@@ -561,13 +561,11 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 #ifdef FINE_TIMING
                 clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-//                logAnswer(querySet->query_size + i, answer);
-
                 pthread_t query_threads[max_threads];
                 shared_leaf_id = 0;
 
                 for (unsigned int j = 0; j < max_threads; ++j) {
-                    queryCache[j].block_size = query_block_size;
+                    queryCache[j].query_block_size = query_block_size;
 
                     pthread_create(&query_threads[j], NULL, queryThread, (void *) &queryCache[j]);
                 }
@@ -599,4 +597,161 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
     free(leaves);
     free(leaf_distances);
     free(leaf_indices);
+}
+
+
+void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Config const *config) {
+#ifdef FINE_TIMING
+    struct timespec start_timestamp, stop_timestamp;
+    TimeDiff time_diff;
+#endif
+    Answer *answer = initializeAnswer(config);
+
+    Value const *values = multindex->values;
+    SAXWord const *saxs = multindex->saxs;
+    ssize_t *inverse_permutation = multindex->inverse_permutation;
+    unsigned int series_length = config->series_length;
+    unsigned int sax_length = config->sax_length;
+    unsigned int sax_cardinality = config->sax_cardinality;
+    Value scale_factor = config->scale_factor;
+
+    unsigned int max_threads = config->max_threads;
+    QueryCache queryCache[max_threads * config->num_indices];
+
+    for (unsigned int i = 0; i < config->num_indices; ++i) {
+        Node **leaves = malloc(sizeof(Node *) * multindex->indices[i]->num_leaves);
+        unsigned int num_leaves = 0;
+        for (unsigned int j = 0; j < multindex->indices[i]->roots_size; ++j) {
+            enqueueLeaf(multindex->indices[i]->roots[j], leaves, &num_leaves);
+        }
+        assert(num_leaves == multindex->indices[i]->num_leaves);
+
+        ID shared_leaf_id;
+        Value *leaf_distances = malloc(sizeof(Value) * num_leaves);
+        unsigned int *leaf_indices = malloc(sizeof(unsigned int) * num_leaves);
+        for (unsigned int j = 0; j < num_leaves; ++j) {
+            leaf_indices[j] = j;
+        }
+
+        unsigned int leaf_block_size = 1 + num_leaves / (max_threads << 1u);
+        unsigned int query_block_size = 2 + num_leaves / (max_threads << 3u);
+
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            unsigned int k = i * max_threads + j;
+            queryCache[k].answer = answer;
+            queryCache[k].index = multindex->indices[i];
+
+            queryCache[k].num_leaves = num_leaves;
+            queryCache[k].leaves = (Node const *const *) leaves;
+            queryCache[k].leaf_indices = leaf_indices;
+            queryCache[k].leaf_distances = leaf_distances;
+
+            queryCache[k].scale_factor = scale_factor;
+            queryCache[k].m256_fetched_cache = aligned_alloc(256, sizeof(Value) * 8);
+
+            queryCache[k].shared_leaf_id = &shared_leaf_id;
+            queryCache[k].sort_leaves = config->sort_leaves;
+
+            queryCache[k].series_limitations = config->series_limitations;
+            queryCache[k].lower_bounding = config->lower_bounding;
+
+            queryCache[k].leaf_block_size = leaf_block_size;
+            queryCache[k].query_block_size = query_block_size;
+
+            queryCache[k].resident_node = NULL;
+        }
+    }
+
+    Value *distance2clusters = malloc(sizeof(Value) * config->num_indices);
+    unsigned int *order_clusters = malloc(sizeof(unsigned int) * config->num_indices);
+    for (unsigned int j = 0; j < config->num_indices; ++j) {
+        order_clusters[j] = j;
+    }
+
+    for (unsigned int i = 0; i < querySet->query_size; ++i) {
+#ifdef PROFILING
+        query_id_profiling = i;
+        leaf_counter_profiling = 0;
+        sum2sax_counter_profiling = 0;
+        l2square_counter_profiling = 0;
+#endif
+#ifdef FINE_TIMING
+        clock_code = clock_gettime(CLK_ID, &start_timestamp);
+#endif
+        if (querySet->initial_bsf_distances == NULL) {
+            resetAnswer(answer);
+        } else {
+            resetAnswerBy(answer, querySet->initial_bsf_distances[i]);
+            clog_info(CLOG(CLOGGER_ID), "query %d - initial 1bsf = %f", i, querySet->initial_bsf_distances[i]);
+        }
+
+        Value const *query_values = querySet->values + series_length * i;
+        Value const *query_summarization = querySet->summarizations + sax_length * i;
+
+        for (unsigned int j = 0; j < config->num_indices; ++j) {
+            distance2clusters[j] = l2Square(series_length, query_values, multindex->centers + series_length * j);
+        }
+        qSortIndicesBy(order_clusters, distance2clusters, 0, (int) config->num_indices - 1);
+
+        for (unsigned int j = 0; j < config->num_indices * max_threads; ++j) {
+            queryCache[j].query_values = query_values;
+            queryCache[j].query_summarization = query_summarization;
+        }
+
+        for (unsigned int index_id = 0; index_id < config->num_indices; ++index_id) {
+            unsigned int cache_offset = index_id * max_threads;
+            pthread_t leaves_threads[max_threads];
+            queryCache[cache_offset].shared_leaf_id = 0;
+
+            for (unsigned int j = 0; j < max_threads; ++j) {
+                pthread_create(&leaves_threads[j], NULL, leafThread, (void *) &queryCache[cache_offset + j]);
+            }
+            for (unsigned int j = 0; j < max_threads; ++j) {
+                pthread_join(leaves_threads[j], NULL);
+            }
+
+            if (config->sort_leaves) {
+                qSortIndicesBy(queryCache[cache_offset].leaf_indices, queryCache[cache_offset].leaf_distances,
+                               0, (int) (queryCache[cache_offset].num_leaves - 1));
+            }
+
+            pthread_t query_threads[max_threads];
+            queryCache[cache_offset].shared_leaf_id = 0;
+
+            for (unsigned int j = 0; j < max_threads; ++j) {
+                pthread_create(&query_threads[j], NULL, queryThread, (void *) &queryCache[cache_offset + j]);
+            }
+            for (unsigned int j = 0; j < max_threads; ++j) {
+                pthread_join(query_threads[j], NULL);
+            }
+#ifdef PROFILING
+            clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax / %d entered / %d examined", i,
+                      l2square_counter_profiling, sum2sax_counter_profiling, leaf_counter_profiling, index_id + 1);
+#endif
+        }
+#ifdef FINE_TIMING
+        clock_code = clock_gettime(CLK_ID, &stop_timestamp);
+        getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
+        clog_info(CLOG(CLOGGER_ID), "query %d - total search = %ld.%lds", i, time_diff.tv_sec, time_diff.tv_nsec);
+#endif
+#ifdef PROFILING
+        clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax / %d entered", i,
+                  l2square_counter_profiling, sum2sax_counter_profiling, leaf_counter_profiling);
+#endif
+        logAnswer(i, answer);
+    }
+
+    for (unsigned int i = 0; i < config->num_indices; ++i) {
+        unsigned int cache_offset = i * max_threads;
+
+        free((Node **) queryCache[cache_offset].leaves);
+        free(queryCache[cache_offset].leaf_distances);
+        free(queryCache[cache_offset].leaf_indices);
+
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            free(queryCache[cache_offset + j].m256_fetched_cache);
+        }
+    }
+
+    freeAnswer(answer);
 }

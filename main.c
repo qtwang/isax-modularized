@@ -14,6 +14,7 @@
 #include "globals.h"
 #include "config.h"
 #include "index.h"
+#include "multindex.h"
 #include "index_engine.h"
 #include "query.h"
 #include "query_engine.h"
@@ -30,6 +31,9 @@ int main(int argc, char **argv) {
 
     logConfig(config);
 
+    Index *index = NULL;
+    MultIndex *multindex = NULL;
+
 #ifdef TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
@@ -37,9 +41,15 @@ int main(int argc, char **argv) {
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
 
-    Index *index = initializeIndex(config);
-    buildIndex(config, index);
-    finalizeIndex(config, index);
+    if (config->num_indices == 1) {
+        index = initializeIndex(config);
+        buildIndex(config, index);
+        finalizeIndex(config, index);
+    } else {
+        multindex = initializeMultIndex(config);
+        buildMultIndex(config, multindex);
+        finalizeMultIndex(config, multindex);
+    }
 
 #ifdef TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
@@ -48,7 +58,11 @@ int main(int argc, char **argv) {
     clog_info(CLOG(CLOGGER_ID), "index - overall = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
 #endif
 
-    logIndex(index);
+    if (config->num_indices == 1) {
+        logIndex(index);
+    } else {
+        logMultIndex(multindex);
+    }
 
 #ifdef PROFILING
     log_lock_profiling = malloc(sizeof(pthread_mutex_t));
@@ -60,7 +74,12 @@ int main(int argc, char **argv) {
 #endif
 
     QuerySet *queries = initializeQuery(config, index);
-    conductQueries(queries, index, config);
+
+    if (config->num_indices == 1) {
+        conductQueries(queries, index, config);
+    } else {
+        conductQueriesMI(queries, multindex, config);
+    }
 
 #ifdef TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
@@ -74,7 +93,13 @@ int main(int argc, char **argv) {
     free(log_lock_profiling);
 #endif
 
-    freeIndex(index);
+
+    if (config->num_indices == 1) {
+        freeIndex(index);
+    } else {
+        freeMultIndex(multindex);
+    }
+
     freeQuery(queries);
     free((Config *) config);
 

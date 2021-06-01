@@ -35,7 +35,7 @@ Index *initializeIndex(Config const *config) {
 
     Index *index = malloc(sizeof(Index));
     if (index == NULL) {
-        clog_error(CLOG(CLOGGER_ID), "could not allocate memory to initialize index");
+        clog_error(CLOG(CLOGGER_ID), "could not allocate memory to initialize an index");
         exit(EXIT_FAILURE);
     }
 
@@ -133,8 +133,10 @@ Index *initializeIndex(Config const *config) {
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
 
-    index->saxs = (SAXWord const *) summarizations2SAX16(summarizations, index->breakpoints, index->database_size,
-                                                         index->sax_length, index->sax_cardinality, config->max_threads);
+    SAXWord *saxs = aligned_alloc(128, sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->database_size);
+    summarizations2SAX16(saxs, summarizations, index->breakpoints, index->database_size, index->sax_length,
+                         index->sax_cardinality, config->max_threads);
+    index->saxs = (SAXWord const *) saxs;
 
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);

@@ -37,7 +37,10 @@ const struct option longopts[] = {
         {"query_bsf_filepath",              required_argument, NULL, 29},
         {"squeeze_leaves",                  no_argument,       NULL, 30},
         {"peel_leaves",                     no_argument,       NULL, 31},
-        {"with_id",                         no_argument,       NULL,    32},
+        {"with_id",                         no_argument,       NULL, 32},
+        {"num_indices",                     no_argument,       NULL, 33},
+        {"cluster_indicators_filepath",     required_argument, NULL, 34},
+        {"cluster_centers_filepath",        required_argument, NULL, 35},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -84,7 +87,8 @@ Config *initializeConfig(int argc, char **argv) {
     config->database_size = 0;
     config->query_size = 0;
 
-    config->initial_leaf_size = 1024;
+//    config->initial_leaf_size = 1024;
+    config->initial_leaf_size = 64;
     config->leaf_size = 8000;
 
     config->index_block_size = 20000;
@@ -114,6 +118,10 @@ Config *initializeConfig(int argc, char **argv) {
 
     config->squeeze_leaves = false;
     config->peel_leaves = false;
+
+    config->num_indices = 1;
+    config->cluster_indicators_filepath = NULL;
+    config->cluster_centers_filepath = NULL;
 
     char *string_parts;
     int opt, longindex = 0;
@@ -214,6 +222,15 @@ Config *initializeConfig(int argc, char **argv) {
                 break;
             case 32:
                 config->with_id = true;
+                break;
+            case 33:
+                config->num_indices = (unsigned int) strtol(optarg, &string_parts, 10);
+                break;
+            case 34:
+                config->cluster_indicators_filepath = optarg;
+                break;
+            case 35:
+                config->cluster_centers_filepath = optarg;
                 break;
             default:
                 exit(EXIT_FAILURE);

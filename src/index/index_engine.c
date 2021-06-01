@@ -274,6 +274,47 @@ void buildIndex(Config const *config, Index *index) {
 }
 
 
+void buildMultIndex(Config const *config, MultIndex *multindex) {
+#ifdef FINE_TIMING
+    struct timespec start_timestamp, stop_timestamp;
+    TimeDiff time_diff;
+    clock_code = clock_gettime(CLK_ID, &start_timestamp);
+#endif
+    for (unsigned int i = 0; i < config->num_indices; ++i) {
+        unsigned int num_threads = config->max_threads;
+        unsigned int num_blocks = (unsigned int) ceil(
+                (double) multindex->cluster_sizes[i] / (double) config->index_block_size);
+        if (num_threads > num_blocks) {
+            num_threads = num_blocks;
+        }
+
+        pthread_t threads[num_threads];
+        IndexCache indexCache[num_threads];
+
+        ID shared_start_id = 0;
+        for (unsigned int j = 0; j < num_threads; ++j) {
+            indexCache[j].index = multindex->indices[i];
+            indexCache[j].leaf_size = config->leaf_size;
+            indexCache[j].initial_leaf_size = config->initial_leaf_size;
+            indexCache[j].block_size = config->index_block_size;
+            indexCache[j].shared_start_id = &shared_start_id;
+            indexCache[j].split_by_summarizations = config->split_by_summarizations;
+
+            pthread_create(&threads[i], NULL, buildIndexThread, (void *) &indexCache[i]);
+        }
+
+        for (unsigned int j = 0; j < num_threads; ++j) {
+            pthread_join(threads[j], NULL);
+        }
+    }
+#ifdef FINE_TIMING
+    clock_code = clock_gettime(CLK_ID, &stop_timestamp);
+    getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
+    clog_info(CLOG(CLOGGER_ID), "index - build = %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
+#endif
+}
+
+
 void fetchPermutation(Node *node, ssize_t *permutation, ID *counter) {
     if (node->left != NULL) {
         fetchPermutation(node->left, permutation, counter);
@@ -365,7 +406,7 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
                 for (unsigned j = 0; j < index->sax_length; ++j) {
                     if (segment_flags[j]) {
                         for (unsigned int k = BITS_BY_MASK[node->squeezed_masks[j]];
-                             // whether k < BITS_BY_MASK[node->squeezed_masks[j]] will be pre-fetched? or why not?
+                            // whether k < BITS_BY_MASK[node->squeezed_masks[j]] will be pre-fetched? or why not?
                              k > BITS_BY_MASK[node->masks[j]];
                              --k) {
                             if (((unsigned) index->saxs[i + j] ^ (unsigned) node->sax[j]) & MASKS_BY_BITS[k]) {
@@ -551,3 +592,17 @@ void finalizeIndex(Config const *config, Index *index) {
     }
 }
 
+void finalizeMultIndex(Config const *config, MultIndex *multindex) {
+    for (unsigned int i = 0; i < config->num_indices; ++i) {
+        finalizeIndex(config, multindex->indices[i]);
+
+        if (config->with_id) {
+            for (unsigned int j = 0; j < multindex->indices[i]->database_size; ++j) {
+                multindex->indices[i]->pos2id[j] = multindex->inverse_permutation[
+                        multindex->cluster_offsets[i] + multindex->indices[i]->pos2id[j]];
+            }
+        }
+    }
+
+
+}

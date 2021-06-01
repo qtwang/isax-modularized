@@ -11,6 +11,7 @@
 #include "globals.h"
 #include "config.h"
 #include "index.h"
+#include "multindex.h"
 #include "distance.h"
 #include "query.h"
 #include "clog.h"
@@ -20,5 +21,7 @@
 
 
 void conductQueries(QuerySet const *querySet, Index const *index, Config const *config);
+
+void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Config const *config);
 
 #endif //ISAX_QUERY_ENGINE_H

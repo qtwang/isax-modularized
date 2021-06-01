@@ -38,6 +38,8 @@ typedef struct Index {
 
 Node *route(Node const *parent, SAXWord const *sax, unsigned int num_segments);
 
+SAXWord *rootID2SAX(unsigned int id, unsigned int num_segments, unsigned int cardinality);
+
 unsigned int rootSAX2ID(SAXWord const *saxs, unsigned int num_segments, unsigned int cardinality);
 
 Index *initializeIndex(Config const *config);

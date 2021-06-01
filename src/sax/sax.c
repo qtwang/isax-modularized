@@ -54,11 +54,8 @@ void *summarizations2SAX16Thread(void *cache) {
 }
 
 
-SAXWord *
-summarizations2SAX16(Value const *summarizations, Value const *breakpoints, ID size, unsigned int sax_length,
-                     unsigned int sax_cardinality, unsigned int num_threads) {
-    SAXWord *saxs = aligned_alloc(128, sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * size);
-
+void summarizations2SAX16(SAXWord *saxs, Value const *summarizations, Value const *breakpoints, ID size,
+                          unsigned int sax_length, unsigned int sax_cardinality, unsigned int num_threads) {
     pthread_t threads[num_threads];
     SAXCache saxCache[num_threads];
 
@@ -81,8 +78,6 @@ summarizations2SAX16(Value const *summarizations, Value const *breakpoints, ID s
     for (unsigned int i = 0; i < num_threads; ++i) {
         pthread_join(threads[i], NULL);
     }
-
-    return saxs;
 }
 
 
@@ -134,8 +129,8 @@ Value l2SquareValue2SAXByMaskSIMD(unsigned int sax_length, Value const *summariz
     __m256i m256i_sax = _mm256_cvtepu16_epi32(_mm256_extractf128_si256(m256i_sax_packed, 0));
 
     __m256i m256i_mask_indices = _mm256_load_si256(m256i_masks);
-    __m256i m256i_sax_shifts = _mm256_i32gather_epi32((const int *)SHIFTS_BY_MASK, m256i_mask_indices, 4);
-    __m256i m256i_cardinality_offsets = _mm256_i32gather_epi32((const int *)OFFSETS_BY_MASK, m256i_mask_indices, 4);
+    __m256i m256i_sax_shifts = _mm256_i32gather_epi32((const int *) SHIFTS_BY_MASK, m256i_mask_indices, 4);
+    __m256i m256i_cardinality_offsets = _mm256_i32gather_epi32((const int *) OFFSETS_BY_MASK, m256i_mask_indices, 4);
 
     __m256i m256i_sax_offsets = _mm256_add_epi32(M256I_BREAKPOINTS_OFFSETS_0_7, m256i_cardinality_offsets);
     __m256i m256i_sax_indices = _mm256_srlv_epi32(m256i_sax, m256i_sax_shifts);
@@ -162,8 +157,8 @@ Value l2SquareValue2SAXByMaskSIMD(unsigned int sax_length, Value const *summariz
         m256i_sax = _mm256_cvtepu16_epi32(_mm256_extractf128_si256(m256i_sax_packed, 1));
 
         m256i_mask_indices = _mm256_load_si256(m256i_masks + 1);
-        m256i_sax_shifts = _mm256_i32gather_epi32((const int *)SHIFTS_BY_MASK, m256i_mask_indices, 4);
-        m256i_cardinality_offsets = _mm256_i32gather_epi32((const int *)OFFSETS_BY_MASK, m256i_mask_indices, 4);
+        m256i_sax_shifts = _mm256_i32gather_epi32((const int *) SHIFTS_BY_MASK, m256i_mask_indices, 4);
+        m256i_cardinality_offsets = _mm256_i32gather_epi32((const int *) OFFSETS_BY_MASK, m256i_mask_indices, 4);
 
         m256i_sax_offsets = _mm256_add_epi32(M256I_BREAKPOINTS_OFFSETS_8_15, m256i_cardinality_offsets);
         m256i_sax_indices = _mm256_srlv_epi32(m256i_sax, m256i_sax_shifts);
@@ -232,7 +227,7 @@ Value l2SquareValue2EnvelopSIMD(unsigned int sax_length, Value const *summarizat
 
     if (sax_length == 16) {
         m256_summarizations = _mm256_loadu_ps(summarizations + 8);
-        m256_floor_breakpoints = _mm256_loadu_ps( lower_envelops + 8);
+        m256_floor_breakpoints = _mm256_loadu_ps(lower_envelops + 8);
         m256_ceiling_breakpoints = _mm256_loadu_ps(upper_envelops + 8);
 
         m256_floor_diff = _mm256_sub_ps(m256_floor_breakpoints, m256_summarizations);
