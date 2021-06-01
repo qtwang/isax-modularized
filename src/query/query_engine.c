@@ -215,23 +215,31 @@ void *leafThread(void *cache) {
 
     ID leaf_id, stop_leaf_id;
     Node const *leaf;
-
+//#ifdef DEBUG
+//    clog_debug(CLOG(CLOGGER_ID), "query - fine before calculations");
+//    clog_debug(CLOG(CLOGGER_ID), "query - fine before calculations, %d, %d", block_size, num_leaves);
+//    clog_debug(CLOG(CLOGGER_ID), "query - fine before calculations, %d", *shared_leaf_id);
+//#endif
     while ((leaf_id = __sync_fetch_and_add(shared_leaf_id, block_size)) < num_leaves) {
         stop_leaf_id = leaf_id + block_size;
         if (stop_leaf_id > num_leaves) {
             stop_leaf_id = num_leaves;
         }
-
+//#ifdef DEBUG
+//        clog_debug(CLOG(CLOGGER_ID), "query - fine %d --> %d", leaf_id, stop_leaf_id);
+//#endif
         for (unsigned int i = leaf_id; i < stop_leaf_id; ++i) {
             leaf = queryCache->leaves[i];
-
-            if (leaf == resident_node) {
+//#ifdef DEBUG
+//    clog_debug(CLOG(CLOGGER_ID), "query - fine before %d", i);
+//#endif
+            if (resident_node != NULL && leaf == resident_node) {
                 leaf_distances[i] = VALUE_MAX;
             } else {
                 if (leaf->upper_envelops != NULL) {
-                    leaf_distances[i] = l2SquareValue2EnvelopSIMD(sax_length, query_summarization, leaf->upper_envelops,
-                                                                  leaf->lower_envelops, scale_factor,
-                                                                  m256_fetched_cache);
+                    leaf_distances[i] = l2SquareValue2EnvelopSIMD(sax_length, query_summarization,
+                                                                  leaf->upper_envelops, leaf->lower_envelops,
+                                                                  scale_factor, m256_fetched_cache);
                 } else if (leaf->squeezed_masks != NULL) {
                     leaf_distances[i] = l2SquareValue2SAXByMaskSIMD(sax_length, query_summarization, leaf->sax,
                                                                     leaf->squeezed_masks, breakpoints, scale_factor,
@@ -611,6 +619,7 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
     unsigned int sax_length = config->sax_length;
     Value scale_factor = config->scale_factor;
 
+    ID shared_leaf_id = 0;
     unsigned int max_threads = config->max_threads;
     QueryCache queryCache[max_threads * config->num_indices];
 
@@ -622,7 +631,6 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
         }
         assert(num_leaves == multindex->indices[i]->num_leaves);
 
-        ID shared_leaf_id;
         Value *leaf_distances = malloc(sizeof(Value) * num_leaves);
         unsigned int *leaf_indices = malloc(sizeof(unsigned int) * num_leaves);
         for (unsigned int j = 0; j < num_leaves; ++j) {
@@ -634,6 +642,7 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
 
         for (unsigned int j = 0; j < max_threads; ++j) {
             unsigned int k = i * max_threads + j;
+
             queryCache[k].answer = answer;
             queryCache[k].index = multindex->indices[i];
 
@@ -643,7 +652,7 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
             queryCache[k].leaf_distances = leaf_distances;
 
             queryCache[k].scale_factor = scale_factor;
-            queryCache[k].m256_fetched_cache = aligned_alloc(256, sizeof(Value) * 8);
+            queryCache[k].m256_fetched_cache = aligned_alloc(sizeof(__m256i), sizeof(Value) * 8);
 
             queryCache[k].shared_leaf_id = &shared_leaf_id;
             queryCache[k].sort_leaves = config->sort_leaves;
@@ -697,7 +706,7 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
         for (unsigned int index_id = 0; index_id < config->num_indices; ++index_id) {
             unsigned int cache_offset = index_id * max_threads;
             pthread_t leaves_threads[max_threads];
-            queryCache[cache_offset].shared_leaf_id = 0;
+            shared_leaf_id = 0;
 
             for (unsigned int j = 0; j < max_threads; ++j) {
                 pthread_create(&leaves_threads[j], NULL, leafThread, (void *) &queryCache[cache_offset + j]);
@@ -712,7 +721,7 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
             }
 
             pthread_t query_threads[max_threads];
-            queryCache[cache_offset].shared_leaf_id = 0;
+            shared_leaf_id = 0;
 
             for (unsigned int j = 0; j < max_threads; ++j) {
                 pthread_create(&query_threads[j], NULL, queryThread, (void *) &queryCache[cache_offset + j]);

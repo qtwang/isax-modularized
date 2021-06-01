@@ -55,7 +55,7 @@ void inspectNode(Node *node, unsigned int *num_series, unsigned int *num_leaves,
                 *num_roots += 1;
             }
 
-#ifdef PROFILING
+#ifdef FINE_PROFILING
             clog_info(CLOG(CLOGGER_ID), "index - node %lu = %lu", *num_leaves, node->size);
 #endif
 

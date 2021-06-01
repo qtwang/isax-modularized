@@ -23,7 +23,7 @@
 
 void buildIndex(Config const *config, Index *index);
 
-void finalizeIndex(Config const *config, Index *index);
+void finalizeIndex(Config const *config, Index *index, bool free_summarizations);
 
 void buildMultIndex(Config const *config, MultIndex *multindex);
 

@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     if (config->num_indices == 1) {
         index = initializeIndex(config);
         buildIndex(config, index);
-        finalizeIndex(config, index);
+        finalizeIndex(config, index, true);
     } else {
         multindex = initializeMultIndex(config);
         buildMultIndex(config, multindex);

@@ -300,7 +300,7 @@ void buildMultIndex(Config const *config, MultIndex *multindex) {
             indexCache[j].shared_start_id = &shared_start_id;
             indexCache[j].split_by_summarizations = config->split_by_summarizations;
 
-            pthread_create(&threads[i], NULL, buildIndexThread, (void *) &indexCache[i]);
+            pthread_create(&threads[j], NULL, buildIndexThread, (void *) &indexCache[j]);
         }
 
         for (unsigned int j = 0; j < num_threads; ++j) {
@@ -456,10 +456,10 @@ void squeezeNode(Node *node, Index *index, bool *segment_flags) {
                     }
                 }
             }
-#endif
         }
-    }
 #endif
+#endif
+    }
 }
 
 
@@ -510,7 +510,7 @@ void peelNode(Node *node, Index *index) {
 }
 
 
-void finalizeIndex(Config const *config, Index *index) {
+void finalizeIndex(Config const *config, Index *index, bool free_summarizations) {
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
@@ -586,7 +586,7 @@ void finalizeIndex(Config const *config, Index *index) {
 #endif
     }
 
-    if (index->summarizations != NULL) {
+    if (free_summarizations && index->summarizations != NULL) {
         free((Value *) index->summarizations);
     }
 }
@@ -594,16 +594,22 @@ void finalizeIndex(Config const *config, Index *index) {
 
 void finalizeMultIndex(Config const *config, MultIndex *multindex) {
     for (unsigned int i = 0; i < config->num_indices; ++i) {
-        finalizeIndex(config, multindex->indices[i]);
+        finalizeIndex(config, multindex->indices[i], false);
 
         if (config->with_id) {
             for (unsigned int j = 0; j < multindex->indices[i]->database_size; ++j) {
                 multindex->indices[i]->pos2id[j] = multindex->inverse_permutation[
                         multindex->cluster_offsets[i] + multindex->indices[i]->pos2id[j]];
             }
-
-            free(multindex->inverse_permutation);
-            multindex->inverse_permutation = NULL;
         }
+#ifdef DEBUG
+        clog_debug(CLOG(CLOGGER_ID), "multindex - finalize subindex %d", i);
+#endif
     }
+
+    free((Value *) multindex->summarizations);
+    free(multindex->inverse_permutation);
+
+    multindex->summarizations = NULL;
+    multindex->inverse_permutation = NULL;
 }

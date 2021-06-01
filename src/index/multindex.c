@@ -46,7 +46,7 @@ MultIndex *initializeMultIndex(Config const *config) {
     TimeDiff time_diff;
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-    Value *values = aligned_alloc(256, sizeof(Value) * config->series_length * config->database_size);
+    Value *values = aligned_alloc(sizeof(__m256i), sizeof(Value) * config->series_length * config->database_size);
 
     FILE *file_values = fopen(config->database_filepath, "rb");
     size_t read_values = fread(values, sizeof(Value), config->series_length * config->database_size, file_values);
@@ -69,18 +69,14 @@ MultIndex *initializeMultIndex(Config const *config) {
         assert(read_values == config->series_length * config->num_indices);
 
         multindex->centers = (Value const *) centers;
-//#ifdef DEBUG
-//        clog_debug(CLOG(CLOGGER_ID), "multindex - load centers");
-//#endif
+
         int32_t *indicators = malloc(sizeof(int32_t) * config->database_size);
 
         file_values = fopen(config->cluster_indicators_filepath, "rb");
         read_values = fread(indicators, sizeof(int32_t), config->database_size, file_values);
         fclose(file_values);
         assert(read_values == config->database_size);
-//#ifdef DEBUG
-//        clog_debug(CLOG(CLOGGER_ID), "multindex - load indicators");
-//#endif
+
         multindex->cluster_sizes = malloc(sizeof(ID) * config->num_indices);
         for (unsigned int i = 0; i < config->num_indices; ++i) {
             multindex->cluster_sizes[i] = 0;
@@ -96,9 +92,7 @@ MultIndex *initializeMultIndex(Config const *config) {
         }
         assert(config->database_size ==
                multindex->cluster_offsets[config->num_indices - 1] + multindex->cluster_sizes[config->num_indices - 1]);
-//#ifdef DEBUG
-//        clog_debug(CLOG(CLOGGER_ID), "multindex - derive cluster sizes and offsets");
-//#endif
+
         ID *offset_iterators = malloc(sizeof(ID) * config->num_indices);
         memcpy(offset_iterators, multindex->cluster_offsets, sizeof(ID) * config->num_indices);
 
@@ -112,15 +106,11 @@ MultIndex *initializeMultIndex(Config const *config) {
         for (unsigned int i = 0; i < config->database_size; ++i) {
             multindex->inverse_permutation[permutation[i]] = i;
         }
-//#ifdef DEBUG
-//        clog_debug(CLOG(CLOGGER_ID), "multindex - derive permutations");
-//#endif
+
         permuteValues(values, permutation, config->database_size, config->series_length);
         multindex->values = (Value const *) values;
-//#ifdef DEBUG
-//        clog_debug(CLOG(CLOGGER_ID), "multindex - permuted");
-//#endif
-        // TODO why this triggered 'local variable may point to deallocated memory'
+
+        // TODO why this triggers 'local variable may point to deallocated memory'
         free(offset_iterators);
     } else {
         clog_error(CLOG(CLOGGER_ID), "not yet support internal clustering");
@@ -132,7 +122,7 @@ MultIndex *initializeMultIndex(Config const *config) {
     clog_info(CLOG(CLOGGER_ID), "multindex - load clusters in %ld.%lds", time_diff.tv_sec, time_diff.tv_nsec);
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-    Value *summarizations = aligned_alloc(256, sizeof(Value) * config->sax_length * config->database_size);
+    Value *summarizations = aligned_alloc(sizeof(__m256i), sizeof(Value) * config->sax_length * config->database_size);
 
     if (config->database_summarization_filepath != NULL) {
         FILE *file_summarizations = fopen(config->database_summarization_filepath, "rb");
@@ -172,7 +162,7 @@ MultIndex *initializeMultIndex(Config const *config) {
         exit(EXIT_FAILURE);
     }
 
-    SAXWord *saxs = aligned_alloc(sizeof(__m256i), sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->database_size);
+    SAXWord *saxs = aligned_alloc(sizeof(__m128i), sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH * config->database_size);
 
     for (unsigned int i = 0; i < config->num_indices; ++i) {
         multindex->indices[i] = malloc(sizeof(Index));
@@ -189,17 +179,16 @@ MultIndex *initializeMultIndex(Config const *config) {
 
         multindex->indices[i]->roots_size = 1u << config->sax_length;
         multindex->indices[i]->roots = malloc(sizeof(Node *) * multindex->indices[i]->roots_size);
-        SAXMask *root_masks = aligned_alloc(128, sizeof(SAXMask) * config->sax_length);
+
+        SAXMask *root_masks = aligned_alloc(sizeof(__m256i), sizeof(SAXMask) * config->sax_length);
         for (unsigned int j = 0; j < config->sax_length; ++j) {
             root_masks[j] = (SAXMask) (1u << (config->sax_cardinality - 1));
         }
-        for (unsigned int j = 0; j < multindex->indices[j]->roots_size; ++j) {
+        for (unsigned int j = 0; j < multindex->indices[i]->roots_size; ++j) {
             multindex->indices[i]->roots[j] = initializeNode(rootID2SAX(j, config->sax_length, config->sax_cardinality),
                                                              root_masks);
         }
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - initialize roots for subindex %d", i);
-#endif
+
         if (config->use_adhoc_breakpoints) {
             if (config->share_breakpoints) {
                 multindex->indices[i]->breakpoints = getSharedAdhocBreakpoints8(multindex->indices[i]->summarizations,
@@ -213,16 +202,12 @@ MultIndex *initializeMultIndex(Config const *config) {
         } else {
             multindex->indices[i]->breakpoints = getNormalBreakpoints8(config->sax_length);
         }
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - get breakpoint table for subindex %d", i);
-#endif
-        summarizations2SAX16(saxs + config->sax_length * multindex->cluster_offsets[i],
+
+        summarizations2SAX16(saxs + SAX_SIMD_ALIGNED_LENGTH * multindex->cluster_offsets[i],
                              multindex->indices[i]->summarizations, multindex->indices[i]->breakpoints,
-                             config->database_size, config->sax_length, config->sax_cardinality, config->max_threads);
-        multindex->indices[i]->saxs = saxs + config->sax_length * multindex->cluster_offsets[i];
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "multindex - get saxs for subindex %d", i);
-#endif
+                             multindex->indices[i]->database_size,
+                             config->sax_length, config->sax_cardinality, config->max_threads);
+        multindex->indices[i]->saxs = saxs + SAX_SIMD_ALIGNED_LENGTH * multindex->cluster_offsets[i];
     }
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
@@ -233,9 +218,12 @@ MultIndex *initializeMultIndex(Config const *config) {
     if (!config->split_by_summarizations && !config->peel_leaves) {
         free(summarizations);
         multindex->summarizations = NULL;
+
         for (unsigned int i = 0; i < config->num_indices; ++i) {
             multindex->indices[i]->summarizations = NULL;
         }
+    } else {
+        multindex->summarizations = summarizations;
     }
 
     return multindex;
@@ -245,7 +233,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 void freeMultIndex(MultIndex *multindex) {
     free((Value *) multindex->centers);
     free((Value *) multindex->values);
-    free((SAXWord *) multindex->saxs);
+//    free((SAXWord *) multindex->saxs);
     free((Value *) multindex->summarizations);
 
     free(multindex->cluster_sizes);
@@ -278,7 +266,7 @@ void freeMultIndex(MultIndex *multindex) {
 
 void logMultIndex(MultIndex *multindex) {
     for (unsigned int i = 0; i < multindex->num_indices; ++i) {
-        clog_info(CLOG(CLOGGER_ID), "multindex - %d series in %d internal index", multindex->cluster_sizes[i], i);
+        clog_info(CLOG(CLOGGER_ID), "multindex - %d series in subindex %d", multindex->cluster_sizes[i], i);
         logIndex(multindex->indices[i]);
     }
 }
