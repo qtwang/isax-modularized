@@ -333,8 +333,8 @@ void fetchPermutation(Node *node, ssize_t *permutation, ID *counter) {
 }
 
 
-void permute(Value *values, Value *summarizations, SAXWord *saxs, ssize_t *permutation, ssize_t size,
-             unsigned int series_length, unsigned int sax_length) {
+void permuteMemory(Value *values, Value *summarizations, SAXWord *saxs, ssize_t *permutation, ssize_t size,
+                   unsigned int series_length, unsigned int sax_length) {
     unsigned int series_bytes = sizeof(Value) * series_length;
     unsigned int summarization_bytes = sizeof(Value) * sax_length;
     unsigned int sax_bytes = sizeof(SAXWord) * SAX_SIMD_ALIGNED_LENGTH;
@@ -540,9 +540,8 @@ void finalizeIndex(Config const *config, Index *index) {
         index->pos2id = NULL;
     }
 
-    permute((Value *) index->values, (Value *) index->summarizations, (SAXWord *) index->saxs, permutation,
-            (ssize_t) index->database_size,
-            index->series_length, index->sax_length);
+    permuteMemory((Value *) index->values, (Value *) index->summarizations, (SAXWord *) index->saxs, permutation,
+                  (ssize_t) index->database_size, index->series_length, index->sax_length);
 
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
