@@ -592,6 +592,7 @@ void finalizeIndex(Config const *config, Index *index) {
     }
 }
 
+
 void finalizeMultIndex(Config const *config, MultIndex *multindex) {
     for (unsigned int i = 0; i < config->num_indices; ++i) {
         finalizeIndex(config, multindex->indices[i]);
@@ -601,8 +602,9 @@ void finalizeMultIndex(Config const *config, MultIndex *multindex) {
                 multindex->indices[i]->pos2id[j] = multindex->inverse_permutation[
                         multindex->cluster_offsets[i] + multindex->indices[i]->pos2id[j]];
             }
+
+            free(multindex->inverse_permutation);
+            multindex->inverse_permutation = NULL;
         }
     }
-
-
 }
