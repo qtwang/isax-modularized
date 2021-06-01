@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
 
-    QuerySet *queries = initializeQuery(config, index);
+    QuerySet *queries = initializeQuery(config, index, multindex);
 
     if (config->num_indices == 1) {
         conductQueries(queries, index, config);
