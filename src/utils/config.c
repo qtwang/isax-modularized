@@ -38,7 +38,7 @@ const struct option longopts[] = {
         {"squeeze_leaves",                  no_argument,       NULL, 30},
         {"peel_leaves",                     no_argument,       NULL, 31},
         {"with_id",                         no_argument,       NULL, 32},
-        {"num_indices",                     no_argument,       NULL, 33},
+        {"num_indices",                     required_argument, NULL, 33},
         {"cluster_indicators_filepath",     required_argument, NULL, 34},
         {"cluster_centers_filepath",        required_argument, NULL, 35},
         {NULL,                              no_argument,       NULL, 0}
