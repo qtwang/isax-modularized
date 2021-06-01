@@ -11,21 +11,13 @@ void permuteValues(Value *values, ID *permutation, ID num_segments, ID length_se
 
     for (ID i = 0; i < num_segments; ++i) {
         ID next = i;
-#ifdef DEBUG
-        clog_debug(CLOG(CLOGGER_ID), "permuteValues - %d", next);
-#endif
         while (next >= 0 && permutation[next] >= 0) {
-#ifdef DEBUG
-            if (permutation[next] < 0) {
-                clog_debug(CLOG(CLOGGER_ID), "permuteValues - %d -> %d", next, permutation[next]);
-            }
-#endif
             memcpy(values_cache, values + length_segment * i, num_bytes);
             memcpy(values + length_segment * i, values + length_segment * permutation[next], num_bytes);
             memcpy(values + length_segment * permutation[next], values_cache, num_bytes);
 
             ID tmp = permutation[next];
-            permutation[next] -= num_segments;
+            permutation[next] = -permutation[next];
             next = tmp;
         }
     }
@@ -151,7 +143,7 @@ MultIndex *initializeMultIndex(Config const *config) {
 
         assert(permutation != NULL);
         for (ID i = 0; i < config->database_size; ++i) {
-            permutation[i] += config->database_size;
+            permutation[i] = -permutation[i];
         }
         permuteValues(summarizations, permutation, config->database_size, config->sax_length);
     } else {

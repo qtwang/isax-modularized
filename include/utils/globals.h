@@ -79,7 +79,7 @@ typedef float Value;
 typedef unsigned char SAXWord;
 // TODO Why SAXMask is int? Why not char?
 typedef unsigned int SAXMask;
-typedef size_t ID;
+typedef ssize_t ID;
 
 
 #define VALUE_L(left, right) ((right) - (left) > VALUE_EPSILON)
