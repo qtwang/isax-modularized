@@ -142,7 +142,7 @@ MultIndex *initializeMultIndex(Config const *config) {
         for (ID i = 0; i < config->database_size; ++i) {
             permutation[i] += config->database_size;
         }
-        permute(summarizations, permutation, config->database_size, sizeof(Value), config->sax_length);
+        permute(summarizations, permutation, config->database_size, sizeof(Value) * config->sax_length);
     } else {
         summarizations = piecewiseAggregate(multindex->values, config->database_size, config->series_length,
                                             config->sax_length, config->max_threads);
