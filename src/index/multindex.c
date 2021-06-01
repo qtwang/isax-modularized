@@ -9,8 +9,8 @@ void permuteValues(Value *values, ID *permutation, ID num_segments, ID length_se
     unsigned int num_bytes = sizeof(Value) * length_segment;
     Value *values_cache = aligned_alloc(256, sizeof(Value) * length_segment);
 
-    for (ID i = 0, next, tmp; i < num_segments; ++i) {
-        next = i;
+    for (ID i = 0; i < num_segments; ++i) {
+        ID next = i;
 #ifdef DEBUG
         clog_debug(CLOG(CLOGGER_ID), "permuteValues - %d", next);
 #endif
@@ -24,7 +24,7 @@ void permuteValues(Value *values, ID *permutation, ID num_segments, ID length_se
             memcpy(values + length_segment * i, values + length_segment * permutation[next], num_bytes);
             memcpy(values + length_segment * permutation[next], values_cache, num_bytes);
 
-            tmp = permutation[next];
+            ID tmp = permutation[next];
             permutation[next] -= num_segments;
             next = tmp;
         }
