@@ -15,6 +15,8 @@
 #include "distance.h"
 
 typedef struct Node {
+    void *index;
+
     pthread_mutex_t *lock;
     SAXWord *sax;
     SAXMask *masks;

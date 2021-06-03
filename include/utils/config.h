@@ -72,6 +72,8 @@ typedef struct Config {
     unsigned int num_indices;
     char *cluster_indicators_filepath;
     char *cluster_centers_filepath;
+
+    bool mix_leaves;
 } Config;
 
 

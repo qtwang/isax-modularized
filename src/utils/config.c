@@ -41,6 +41,7 @@ const struct option longopts[] = {
         {"num_indices",                     required_argument, NULL, 33},
         {"cluster_indicators_filepath",     required_argument, NULL, 34},
         {"cluster_centers_filepath",        required_argument, NULL, 35},
+        {"mix_leaves",                      no_argument,       NULL, 36},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -122,6 +123,8 @@ Config *initializeConfig(int argc, char **argv) {
     config->num_indices = 1;
     config->cluster_indicators_filepath = NULL;
     config->cluster_centers_filepath = NULL;
+
+    config->mix_leaves = false;
 
     char *string_parts;
     int opt, longindex = 0;
@@ -232,6 +235,9 @@ Config *initializeConfig(int argc, char **argv) {
             case 35:
                 config->cluster_centers_filepath = optarg;
                 break;
+            case 36:
+                config->mix_leaves = true;
+                break;
             default:
                 exit(EXIT_FAILURE);
         }
@@ -301,4 +307,5 @@ void logConfig(Config const *config) {
     clog_info(CLOG(CLOGGER_ID), "config - num_indices = %d", config->num_indices);
     clog_info(CLOG(CLOGGER_ID), "config - cluster_centers_filepath = %s", config->cluster_centers_filepath);
     clog_info(CLOG(CLOGGER_ID), "config - cluster_indicators_filepath = %s", config->cluster_indicators_filepath);
+    clog_info(CLOG(CLOGGER_ID), "config - mix_leaves = %d", config->mix_leaves);
 }

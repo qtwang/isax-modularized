@@ -71,7 +71,7 @@ unsigned int query_id_profiling;
 #define SAX_SIMD_ALIGNED_LENGTH 16
 
 #define VALUE_MAX 1e7
-#define VALUE_MIN -1e7
+#define VALUE_MIN (-1e7)
 #define VALUE_EPSILON 1e-7
 
 typedef float Value;

@@ -8,6 +8,7 @@
 
 Node *initializeNode(SAXWord *sax, SAXMask *masks) {
     Node *node = malloc(sizeof(Node));
+    node->index = NULL;
 
     node->sax = sax;
     node->masks = masks;
@@ -123,6 +124,8 @@ void freeNode(Node *node, bool free_mask, bool free_sax) {
         if (free_sax) {
             free(node->sax);
         }
+
+        free(node->index);
 
         free(node->squeezed_masks);
         free(node->upper_envelops);

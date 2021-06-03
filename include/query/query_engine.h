@@ -20,8 +20,10 @@
 #include "str.h"
 
 
-void conductQueries(QuerySet const *querySet, Index const *index, Config const *config);
+void conductQueries(Config const *config, QuerySet const *querySet, Index const *index);
 
-void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Config const *config);
+void conductQueriesMI(Config const *config, QuerySet const *querySet, MultIndex const *multindex);
+
+void conductQueriesLeavesMI(Config const *configv, QuerySet const *querySet, MultIndex const *multindex);
 
 #endif //ISAX_QUERY_ENGINE_H

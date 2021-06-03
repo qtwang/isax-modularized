@@ -8,6 +8,9 @@
 typedef struct QueryCache {
     Index const *index;
 
+    unsigned int series_length;
+    unsigned int sax_length;
+
     Node const *const *leaves;
     unsigned int *leaf_indices;
     Value *leaf_distances;
@@ -117,13 +120,20 @@ void queryNodeNotBoundingThreadCore(Answer *answer, Node const *node, Value cons
 void *queryThread(void *cache) {
     QueryCache *queryCache = (QueryCache *) cache;
 
-    Value const *values = queryCache->index->values;
-    SAXWord const *saxs = queryCache->index->saxs;
-    Value const *breakpoints = queryCache->index->breakpoints;
-    ssize_t *pos2id = queryCache->index->pos2id;
+    Value const *values = NULL;
+    SAXWord const *saxs = NULL;
+    Value const *breakpoints = NULL;
+    ssize_t *pos2id = NULL;
 
-    unsigned int series_length = queryCache->index->series_length;
-    unsigned int sax_length = queryCache->index->sax_length;
+    if (queryCache->index != NULL) {
+        breakpoints = queryCache->index->breakpoints;
+        values = queryCache->index->values;
+        saxs = queryCache->index->saxs;
+        pos2id = queryCache->index->pos2id;
+    }
+
+    unsigned int series_length = queryCache->series_length;
+    unsigned int sax_length = queryCache->sax_length;
 
     Node const *const *leaves = queryCache->leaves;
     Value *leaf_distances = queryCache->leaf_distances;
@@ -176,6 +186,15 @@ void *queryThread(void *cache) {
                     return NULL;
                 }
 #endif
+                if (queryCache->index == NULL) {
+                    Index *current_index = (Index *) leaves[leaf_id]->index;
+
+                    breakpoints = current_index->breakpoints;
+                    values = current_index->values;
+                    saxs = current_index->saxs;
+                    pos2id = current_index->pos2id;
+                }
+
                 if (lower_bounding) {
                     queryNodeThreadCore(answer, leaves[leaf_id], values, series_length, saxs, sax_length, breakpoints,
                                         scale_factor, query_values, query_summarization, m256_fetched_cache, lock,
@@ -199,8 +218,12 @@ void *queryThread(void *cache) {
 void *leafThread(void *cache) {
     QueryCache *queryCache = (QueryCache *) cache;
 
-    Value const *breakpoints = queryCache->index->breakpoints;
-    unsigned int sax_length = queryCache->index->sax_length;
+
+    Value const *breakpoints = NULL;
+    if (queryCache->index != NULL) {
+        breakpoints = queryCache->index->breakpoints;
+    }
+    unsigned int sax_length = queryCache->sax_length;
 
     Node *resident_node = queryCache->resident_node;
     Value *leaf_distances = queryCache->leaf_distances;
@@ -215,24 +238,20 @@ void *leafThread(void *cache) {
 
     ID leaf_id, stop_leaf_id;
     Node const *leaf;
-//#ifdef DEBUG
-//    clog_debug(CLOG(CLOGGER_ID), "query - fine before calculations");
-//    clog_debug(CLOG(CLOGGER_ID), "query - fine before calculations, %d, %d", block_size, num_leaves);
-//    clog_debug(CLOG(CLOGGER_ID), "query - fine before calculations, %d", *shared_leaf_id);
-//#endif
+
     while ((leaf_id = __sync_fetch_and_add(shared_leaf_id, block_size)) < num_leaves) {
         stop_leaf_id = leaf_id + block_size;
         if (stop_leaf_id > num_leaves) {
             stop_leaf_id = num_leaves;
         }
-//#ifdef DEBUG
-//        clog_debug(CLOG(CLOGGER_ID), "query - fine %d --> %d", leaf_id, stop_leaf_id);
-//#endif
+
         for (unsigned int i = leaf_id; i < stop_leaf_id; ++i) {
             leaf = queryCache->leaves[i];
-//#ifdef DEBUG
-//    clog_debug(CLOG(CLOGGER_ID), "query - fine before %d", i);
-//#endif
+
+            if (queryCache->index == NULL) {
+                breakpoints = ((Index *) leaf->index)->breakpoints;
+            }
+
             if (resident_node != NULL && leaf == resident_node) {
                 leaf_distances[i] = VALUE_MAX;
             } else {
@@ -257,14 +276,18 @@ void *leafThread(void *cache) {
 }
 
 
-void enqueueLeaf(Node *node, Node **leaves, unsigned int *num_leaves) {
+void enqueueLeaf(Node *node, Node **leaves, unsigned int *num_leaves, Index *index) {
     if (node != NULL) {
         if (node->size != 0) {
+            if (index != NULL) {
+                node->index = index;
+            }
+
             leaves[*num_leaves] = node;
             *num_leaves += 1;
         } else if (node->left != NULL) {
-            enqueueLeaf(node->left, leaves, num_leaves);
-            enqueueLeaf(node->right, leaves, num_leaves);
+            enqueueLeaf(node->left, leaves, num_leaves, index);
+            enqueueLeaf(node->right, leaves, num_leaves, index);
         }
     }
 }
@@ -346,7 +369,7 @@ void queryNodeNotBounding(Answer *answer, Node const *node, Value const *values,
 }
 
 
-void conductQueries(QuerySet const *querySet, Index const *index, Config const *config) {
+void conductQueries(Config const *config, QuerySet const *querySet, Index const *index) {
     Answer *answer = initializeAnswer(config);
 
     Value const *values = index->values;
@@ -372,7 +395,7 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
     Node **leaves = malloc(sizeof(Node *) * index->num_leaves);
     unsigned int num_leaves = 0;
     for (unsigned int j = 0; j < index->roots_size; ++j) {
-        enqueueLeaf(index->roots[j], leaves, &num_leaves);
+        enqueueLeaf(index->roots[j], leaves, &num_leaves, NULL);
     }
     assert(num_leaves == index->num_leaves);
 
@@ -408,6 +431,9 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 
         queryCache[i].series_limitations = config->series_limitations;
         queryCache[i].lower_bounding = config->lower_bounding;
+
+        queryCache[i].series_length = config->series_length;
+        queryCache[i].sax_length = config->sax_length;
     }
 
     Value *local_m256_fetched_cache = queryCache[0].m256_fetched_cache;
@@ -608,7 +634,7 @@ void conductQueries(QuerySet const *querySet, Index const *index, Config const *
 }
 
 
-void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Config const *config) {
+void conductQueriesMI(Config const *config, QuerySet const *querySet, MultIndex const *multindex) {
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
@@ -627,7 +653,7 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
         Node **leaves = malloc(sizeof(Node *) * multindex->indices[i]->num_leaves);
         unsigned int num_leaves = 0;
         for (unsigned int j = 0; j < multindex->indices[i]->roots_size; ++j) {
-            enqueueLeaf(multindex->indices[i]->roots[j], leaves, &num_leaves);
+            enqueueLeaf(multindex->indices[i]->roots[j], leaves, &num_leaves, NULL);
         }
         assert(num_leaves == multindex->indices[i]->num_leaves);
 
@@ -645,6 +671,9 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
 
             queryCache[k].answer = answer;
             queryCache[k].index = multindex->indices[i];
+
+            queryCache[k].series_length = config->series_length;
+            queryCache[k].sax_length = config->sax_length;
 
             queryCache[k].num_leaves = num_leaves;
             queryCache[k].leaves = (Node const *const *) leaves;
@@ -697,7 +726,16 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
             distance2clusters[j] = l2Square(series_length, query_values, multindex->centers + series_length * j);
         }
         qSortIndicesBy(order_clusters, distance2clusters, 0, (int) config->num_indices - 1);
-
+//#ifdef DEBUG
+//        for (unsigned int j = 0; j < config->num_indices; ++j) {
+//            clog_debug(CLOG(CLOGGER_ID), "query %d cluster %d = %f",
+//                       i, j, distance2clusters[j]);
+//        }
+//        for (unsigned int j = 0; j < config->num_indices; ++j) {
+//            clog_debug(CLOG(CLOGGER_ID), "query %d cluster %d = %f",
+//                       i, order_clusters[j], distance2clusters[order_clusters[j]]);
+//        }
+//#endif
         for (unsigned int j = 0; j < config->num_indices * max_threads; ++j) {
             queryCache[j].query_values = query_values;
             queryCache[j].query_summarization = query_summarization;
@@ -758,5 +796,154 @@ void conductQueriesMI(QuerySet const *querySet, MultIndex const *multindex, Conf
         }
     }
 
+    freeAnswer(answer);
+}
+
+
+void conductQueriesLeavesMI(Config const *config, QuerySet const *querySet, MultIndex const *multindex) {
+#ifdef FINE_TIMING
+    struct timespec start_timestamp, stop_timestamp;
+    TimeDiff time_diff;
+#endif
+    Answer *answer = initializeAnswer(config);
+
+    unsigned int series_length = config->series_length;
+    unsigned int sax_length = config->sax_length;
+    Value scale_factor = config->scale_factor;
+
+    unsigned int num_leaves = 0, leaf_counter = 0;
+    for (unsigned int i = 0; i < config->num_indices; ++i) {
+        num_leaves += multindex->indices[i]->num_leaves;
+    }
+    Node **leaves = malloc(sizeof(Node *) * num_leaves);
+    for (unsigned int i = 0; i < config->num_indices; ++i) {
+        for (unsigned int j = 0; j < multindex->indices[i]->roots_size; ++j) {
+            enqueueLeaf(multindex->indices[i]->roots[j], leaves, &leaf_counter, multindex->indices[i]);
+        }
+    }
+    assert(num_leaves == leaf_counter);
+
+    Value *leaf_distances = malloc(sizeof(Value) * num_leaves);
+    unsigned int *leaf_indices = malloc(sizeof(unsigned int) * num_leaves);
+    for (unsigned int j = 0; j < num_leaves; ++j) {
+        leaf_indices[j] = j;
+    }
+
+    ID shared_leaf_id = 0;
+    unsigned int max_threads = config->max_threads;
+    QueryCache queryCache[max_threads];
+
+    unsigned int leaf_block_size = 1 + num_leaves / (max_threads << 1u);
+    unsigned int query_block_size = 2 + num_leaves / (max_threads << 3u);
+
+    for (unsigned int j = 0; j < max_threads; ++j) {
+        queryCache[j].answer = answer;
+        queryCache[j].index = NULL;
+
+        queryCache[j].series_length = config->series_length;
+        queryCache[j].sax_length = config->sax_length;
+
+        queryCache[j].num_leaves = num_leaves;
+        queryCache[j].leaves = (Node const *const *) leaves;
+        queryCache[j].leaf_indices = leaf_indices;
+        queryCache[j].leaf_distances = leaf_distances;
+
+        queryCache[j].scale_factor = scale_factor;
+        queryCache[j].m256_fetched_cache = aligned_alloc(sizeof(__m256i), sizeof(Value) * 8);
+
+        queryCache[j].shared_leaf_id = &shared_leaf_id;
+        queryCache[j].sort_leaves = config->sort_leaves;
+
+        queryCache[j].series_limitations = config->series_limitations;
+        queryCache[j].lower_bounding = config->lower_bounding;
+
+        queryCache[j].leaf_block_size = leaf_block_size;
+        queryCache[j].query_block_size = query_block_size;
+
+        queryCache[j].resident_node = NULL;
+    }
+
+    for (unsigned int i = 0; i < querySet->query_size; ++i) {
+#ifdef PROFILING
+        query_id_profiling = i;
+        leaf_counter_profiling = 0;
+        sum2sax_counter_profiling = 0;
+        l2square_counter_profiling = 0;
+#endif
+#ifdef FINE_TIMING
+        clock_code = clock_gettime(CLK_ID, &start_timestamp);
+#endif
+        if (querySet->initial_bsf_distances == NULL) {
+            resetAnswer(answer);
+        } else {
+            resetAnswerBy(answer, querySet->initial_bsf_distances[i]);
+            clog_info(CLOG(CLOGGER_ID), "query %d - initial 1bsf = %f", i, querySet->initial_bsf_distances[i]);
+        }
+
+        Value const *query_values = querySet->values + series_length * i;
+        Value const *query_summarization = querySet->summarizations + sax_length * i;
+
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            queryCache[j].query_values = query_values;
+            queryCache[j].query_summarization = query_summarization;
+        }
+
+        pthread_t leaves_threads[max_threads];
+        shared_leaf_id = 0;
+
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            pthread_create(&leaves_threads[j], NULL, leafThread, (void *) &queryCache[j]);
+        }
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            pthread_join(leaves_threads[j], NULL);
+        }
+
+        if (config->sort_leaves) {
+            qSortIndicesBy(leaf_indices, leaf_distances, 0, (int) (num_leaves - 1));
+        }
+
+        for (unsigned j = 0; getBSF(answer) < VALUE_MAX && j < num_leaves; ++j) {
+#ifdef PROFILING
+            leaf_counter_profiling += 1;
+#endif
+            for (unsigned int k = 0; k < max_threads; ++k) {
+                leaf_distances[leaf_indices[j]] = VALUE_MAX;
+            }
+
+            Index *resident_index = (Index *) leaves[leaf_indices[j]]->index;
+
+            queryNode(answer, leaves[leaf_indices[j]], resident_index->values, series_length, resident_index->saxs,
+                      sax_length, resident_index->breakpoints, scale_factor, query_values, query_summarization,
+                      queryCache[0].m256_fetched_cache, resident_index->pos2id);
+        }
+
+        pthread_t query_threads[max_threads];
+        shared_leaf_id = 0;
+
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            pthread_create(&query_threads[j], NULL, queryThread, (void *) &queryCache[j]);
+        }
+        for (unsigned int j = 0; j < max_threads; ++j) {
+            pthread_join(query_threads[j], NULL);
+        }
+#ifdef FINE_TIMING
+        clock_code = clock_gettime(CLK_ID, &stop_timestamp);
+        getTimeDiff(&time_diff, start_timestamp, stop_timestamp);
+        clog_info(CLOG(CLOGGER_ID), "query %d - total search = %ld.%lds", i, time_diff.tv_sec, time_diff.tv_nsec);
+#endif
+#ifdef PROFILING
+        clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax / %d entered", i,
+                  l2square_counter_profiling, sum2sax_counter_profiling, leaf_counter_profiling);
+#endif
+        logAnswer(i, answer);
+    }
+
+    for (unsigned int i = 0; i < max_threads; ++i) {
+        free(queryCache[i].m256_fetched_cache);
+    }
+
+    free(leaves);
+    free(leaf_distances);
+    free(leaf_indices);
     freeAnswer(answer);
 }

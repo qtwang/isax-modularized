@@ -238,7 +238,7 @@ void freeMultIndex(MultIndex *multindex) {
 
     free(multindex->cluster_sizes);
     free(multindex->cluster_offsets);
-    free(multindex->inverse_permutation);
+//    free(multindex->inverse_permutation);
 
     for (unsigned int i = 0; i < multindex->num_indices; ++i) {
         free((Value *) multindex->indices[i]->breakpoints);

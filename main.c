@@ -75,9 +75,13 @@ int main(int argc, char **argv) {
     QuerySet *queries = initializeQuery(config, index, multindex);
 
     if (config->num_indices == 1) {
-        conductQueries(queries, index, config);
+        conductQueries(config, queries, index);
     } else {
-        conductQueriesMI(queries, multindex, config);
+        if (config->mix_leaves) {
+            conductQueriesLeavesMI(config, queries, multindex);
+        } else {
+            conductQueriesMI(config, queries, multindex);
+        }
     }
 
 #ifdef TIMING
