@@ -741,7 +741,8 @@ void conductQueriesMI(Config const *config, QuerySet const *querySet, MultIndex 
             queryCache[j].query_summarization = query_summarization;
         }
 
-        for (unsigned int index_id = 0; index_id < config->num_indices; ++index_id) {
+        for (unsigned int k = 0; k < config->num_indices; ++k) {
+            unsigned int index_id = order_clusters[k];
             unsigned int cache_offset = index_id * max_threads;
             pthread_t leaves_threads[max_threads];
             shared_leaf_id = 0;
@@ -769,7 +770,7 @@ void conductQueriesMI(Config const *config, QuerySet const *querySet, MultIndex 
             }
 #ifdef PROFILING
             clog_info(CLOG(CLOGGER_ID), "query %d - %d l2square / %d sum2sax / %d entered / %d examined", i,
-                      l2square_counter_profiling, sum2sax_counter_profiling, leaf_counter_profiling, index_id + 1);
+                      l2square_counter_profiling, sum2sax_counter_profiling, leaf_counter_profiling, k + 1);
 #endif
         }
 #ifdef FINE_TIMING
