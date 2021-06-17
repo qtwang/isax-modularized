@@ -42,6 +42,7 @@ const struct option longopts[] = {
         {"cluster_indicators_filepath",     required_argument, NULL, 34},
         {"cluster_centers_filepath",        required_argument, NULL, 35},
         {"mix_leaves",                      no_argument,       NULL, 36},
+        {"split_by_sigma",                  no_argument,       NULL, 37},
         {NULL,                              no_argument,       NULL, 0}
 };
 
@@ -103,6 +104,7 @@ Config *initializeConfig(int argc, char **argv) {
     config->exact_search = false;
     config->sort_leaves = false;
     config->split_by_summarizations = false;
+    config->split_by_sigma = false;
 
     config->k = 1;
 
@@ -237,6 +239,10 @@ Config *initializeConfig(int argc, char **argv) {
                 break;
             case 36:
                 config->mix_leaves = true;
+                break;
+            case 37:
+                config->split_by_sigma = true;
+                config->split_by_summarizations = true;
                 break;
             default:
                 exit(EXIT_FAILURE);

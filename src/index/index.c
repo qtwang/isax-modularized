@@ -177,7 +177,7 @@ void freeIndex(Index *index) {
 }
 
 
-void logIndex(Index *index) {
+void logIndex(Config const *config, Index *index) {
     unsigned int num_series = 0, num_roots = 0;
     for (unsigned int i = 0; i < index->roots_size; ++i) {
         inspectNode(index->roots[i], &num_series, &index->num_leaves, &num_roots);
@@ -185,4 +185,29 @@ void logIndex(Index *index) {
 
     clog_info(CLOG(CLOGGER_ID), "index - %d series in %d leaves from %d / %d roots", num_series, index->num_leaves,
               num_roots, index->roots_size);
+#ifdef DEBUG
+    if (config->sax_cardinality > 2) {
+        if (config->share_breakpoints) {
+            Value const *breakpoints2c = index->breakpoints + OFFSETS_BY_CARDINALITY[3];
+
+            clog_debug(CLOG(CLOGGER_ID),
+                       "index - breakpoints-4 = %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f",
+                       breakpoints2c[0], breakpoints2c[1], breakpoints2c[2], breakpoints2c[3], breakpoints2c[4],
+                       breakpoints2c[5], breakpoints2c[6], breakpoints2c[7], breakpoints2c[8], breakpoints2c[9],
+                       breakpoints2c[10], breakpoints2c[11], breakpoints2c[12], breakpoints2c[13], breakpoints2c[14],
+                       breakpoints2c[15], breakpoints2c[16], breakpoints2c[17]);
+        } else {
+            for (unsigned int i = 0; i < index->sax_length; ++i) {
+                Value const *breakpoints2c = index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_CARDINALITY[3];
+
+                clog_debug(CLOG(CLOGGER_ID),
+                           "index - breakpoints-4 of seg-%d = %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f",
+                           i, breakpoints2c[0], breakpoints2c[1], breakpoints2c[2], breakpoints2c[3], breakpoints2c[4],
+                           breakpoints2c[5], breakpoints2c[6], breakpoints2c[7], breakpoints2c[8], breakpoints2c[9],
+                           breakpoints2c[10], breakpoints2c[11], breakpoints2c[12], breakpoints2c[13],
+                           breakpoints2c[14], breakpoints2c[15], breakpoints2c[16], breakpoints2c[17]);
+            }
+        }
+    }
+#endif
 }

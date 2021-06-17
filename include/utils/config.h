@@ -44,6 +44,7 @@ typedef struct Config {
     bool exact_search;
     bool sort_leaves;
     bool split_by_summarizations;
+    bool split_by_sigma;
 
     unsigned int k; // kNN
 

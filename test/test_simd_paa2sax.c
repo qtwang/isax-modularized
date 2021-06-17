@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 
     clog_info(CLOG(CLOGGER_ID), "index - load only = %lums", (clock() - start_clock) * 1000 / CLOCKS_PER_SEC);
 
-    logIndex(index);
+    logIndex(config, index);
 
     Value scale_factor = (Value) config->series_length / (Value) config->sax_length;
     Value min_paa2sax = VALUE_MAX, local_paa2sax;

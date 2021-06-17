@@ -32,6 +32,6 @@ MultIndex *initializeMultIndex(Config const *config);
 
 void freeMultIndex(MultIndex *multindex);
 
-void logMultIndex(MultIndex *multindex);
+void logMultIndex(Config const *config, MultIndex *multindex);
 
 #endif //ISAX_MULTINDEX_H

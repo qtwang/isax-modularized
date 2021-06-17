@@ -60,3 +60,4 @@ bin/
 *.log
 
 .idea/
+.DS_Store

@@ -46,6 +46,6 @@ Index *initializeIndex(Config const *config);
 
 void freeIndex(Index *index);
 
-void logIndex(Index *index);
+void logIndex(Config const *config, Index *index);
 
 #endif //ISAX_INDEX_H

@@ -264,9 +264,9 @@ void freeMultIndex(MultIndex *multindex) {
 }
 
 
-void logMultIndex(MultIndex *multindex) {
+void logMultIndex(Config const *config, MultIndex *multindex) {
     for (unsigned int i = 0; i < multindex->num_indices; ++i) {
         clog_info(CLOG(CLOGGER_ID), "multindex - %d series in subindex %d", multindex->cluster_sizes[i], i);
-        logIndex(multindex->indices[i]);
+        logIndex(config, multindex->indices[i]);
     }
 }

@@ -59,9 +59,9 @@ int main(int argc, char **argv) {
 #endif
 
     if (config->num_indices == 1) {
-        logIndex(index);
+        logIndex(config, index);
     } else {
-        logMultIndex(multindex);
+        logMultIndex(config, multindex);
     }
 
 #ifdef PROFILING

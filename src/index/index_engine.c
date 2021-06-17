@@ -15,6 +15,7 @@ typedef struct IndexCache {
     unsigned int leaf_size;
 
     bool split_by_summarizations;
+    bool split_by_sigma;
 } IndexCache;
 
 
@@ -147,10 +148,43 @@ int decideSplitSegmentByDistribution(Index *index, Node *parent, unsigned int nu
 }
 
 
-void splitNode(Index *index, Node *parent, unsigned int num_segments, bool split_by_summarizations) {
+int decideSplitSegmentBySigma(Index *index, Node *parent, unsigned int num_segments) {
+    int segment_to_split = -1;
+    double bsf = VALUE_MIN, tmp, mean, std;
+
+    for (unsigned int i = 0; i < num_segments; ++i) {
+        if (parent->masks[i] ^ 1u) {
+            mean = 0, std = 0;
+
+            for (unsigned int j = 0; j < parent->size; ++j) {
+                tmp = index->summarizations[num_segments * parent->ids[j] + i];
+                mean += tmp;
+                std += tmp * tmp;
+            }
+
+            mean /= parent->size;
+            std = sqrt(std / parent->size - mean * mean);
+
+            if (VALUE_L(bsf, std)) {
+                bsf = std;
+                segment_to_split = (int) i;
+            } else if (VALUE_EQ(bsf, std) && parent->masks[i] > parent->masks[segment_to_split]) {
+                segment_to_split = (int) i;
+            }
+        }
+    }
+
+    return segment_to_split;
+}
+
+
+void splitNode(Index *index, Node *parent, unsigned int num_segments, bool split_by_summarizations,
+               bool split_by_sigma) {
     int segment_to_split;
 
-    if (split_by_summarizations) {
+    if (split_by_sigma) {
+        segment_to_split = decideSplitSegmentBySigma(index, parent, num_segments);
+    } else if (split_by_summarizations) {
         segment_to_split = decideSplitSegmentByDistribution(index, parent, num_segments);
     } else {
         segment_to_split = decideSplitSegmentByNextBit(index, parent, num_segments);
@@ -160,7 +194,57 @@ void splitNode(Index *index, Node *parent, unsigned int num_segments, bool split
         clog_error(CLOG(CLOGGER_ID), "cannot find segment to split");
         exit(EXIT_FAILURE);
     }
-
+#ifdef DEBUG
+    if (index->sax_length == 16) {
+        clog_debug(CLOG(CLOGGER_ID),
+                   "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
+                   segment_to_split,
+                   char2bin(parent->sax[0]), BITS_BY_MASK[parent->masks[0]],
+                   char2bin(parent->sax[1]), BITS_BY_MASK[parent->masks[1]],
+                   char2bin(parent->sax[2]), BITS_BY_MASK[parent->masks[2]],
+                   char2bin(parent->sax[3]), BITS_BY_MASK[parent->masks[3]],
+                   char2bin(parent->sax[4]), BITS_BY_MASK[parent->masks[4]],
+                   char2bin(parent->sax[5]), BITS_BY_MASK[parent->masks[5]],
+                   char2bin(parent->sax[6]), BITS_BY_MASK[parent->masks[6]],
+                   char2bin(parent->sax[7]), BITS_BY_MASK[parent->masks[7]],
+                   char2bin(parent->sax[8]), BITS_BY_MASK[parent->masks[8]],
+                   char2bin(parent->sax[9]), BITS_BY_MASK[parent->masks[9]],
+                   char2bin(parent->sax[10]), BITS_BY_MASK[parent->masks[10]],
+                   char2bin(parent->sax[11]), BITS_BY_MASK[parent->masks[11]],
+                   char2bin(parent->sax[12]), BITS_BY_MASK[parent->masks[12]],
+                   char2bin(parent->sax[13]), BITS_BY_MASK[parent->masks[13]],
+                   char2bin(parent->sax[14]), BITS_BY_MASK[parent->masks[14]],
+                   char2bin(parent->sax[15]), BITS_BY_MASK[parent->masks[15]]);
+    } else if (index->sax_length == 12) {
+        clog_debug(CLOG(CLOGGER_ID),
+                   "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
+                   segment_to_split,
+                   char2bin(parent->sax[0]), BITS_BY_MASK[parent->masks[0]],
+                   char2bin(parent->sax[1]), BITS_BY_MASK[parent->masks[1]],
+                   char2bin(parent->sax[2]), BITS_BY_MASK[parent->masks[2]],
+                   char2bin(parent->sax[3]), BITS_BY_MASK[parent->masks[3]],
+                   char2bin(parent->sax[4]), BITS_BY_MASK[parent->masks[4]],
+                   char2bin(parent->sax[5]), BITS_BY_MASK[parent->masks[5]],
+                   char2bin(parent->sax[6]), BITS_BY_MASK[parent->masks[6]],
+                   char2bin(parent->sax[7]), BITS_BY_MASK[parent->masks[7]],
+                   char2bin(parent->sax[8]), BITS_BY_MASK[parent->masks[8]],
+                   char2bin(parent->sax[9]), BITS_BY_MASK[parent->masks[9]],
+                   char2bin(parent->sax[10]), BITS_BY_MASK[parent->masks[10]],
+                   char2bin(parent->sax[11]), BITS_BY_MASK[parent->masks[11]]);
+    } else if (index->sax_length == 8) {
+        clog_debug(CLOG(CLOGGER_ID),
+                   "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
+                   segment_to_split,
+                   char2bin(parent->sax[0]), BITS_BY_MASK[parent->masks[0]],
+                   char2bin(parent->sax[1]), BITS_BY_MASK[parent->masks[1]],
+                   char2bin(parent->sax[2]), BITS_BY_MASK[parent->masks[2]],
+                   char2bin(parent->sax[3]), BITS_BY_MASK[parent->masks[3]],
+                   char2bin(parent->sax[4]), BITS_BY_MASK[parent->masks[4]],
+                   char2bin(parent->sax[5]), BITS_BY_MASK[parent->masks[5]],
+                   char2bin(parent->sax[6]), BITS_BY_MASK[parent->masks[6]],
+                   char2bin(parent->sax[7]), BITS_BY_MASK[parent->masks[7]]);
+    }
+#endif
     SAXMask *child_masks = aligned_alloc(256, sizeof(SAXMask) * num_segments);
     memcpy(child_masks, parent->masks, sizeof(SAXMask) * num_segments);
     child_masks[segment_to_split] >>= 1u;
@@ -215,7 +299,8 @@ void *buildIndexThread(void *cache) {
                 parent = node;
 
                 if (node->size == indexCache->leaf_size) {
-                    splitNode(index, parent, index->sax_length, indexCache->split_by_summarizations);
+                    splitNode(index, parent, index->sax_length, indexCache->split_by_summarizations,
+                              indexCache->split_by_sigma);
                 }
 
                 node = route(parent, sax, index->sax_length);
@@ -258,6 +343,7 @@ void buildIndex(Config const *config, Index *index) {
         indexCache[i].block_size = config->index_block_size;
         indexCache[i].shared_start_id = &shared_start_id;
         indexCache[i].split_by_summarizations = config->split_by_summarizations;
+        indexCache[i].split_by_sigma = config->split_by_sigma;
 
         pthread_create(&threads[i], NULL, buildIndexThread, (void *) &indexCache[i]);
     }
@@ -299,6 +385,7 @@ void buildMultIndex(Config const *config, MultIndex *multindex) {
             indexCache[j].block_size = config->index_block_size;
             indexCache[j].shared_start_id = &shared_start_id;
             indexCache[j].split_by_summarizations = config->split_by_summarizations;
+            indexCache[j].split_by_sigma = config->split_by_sigma;
 
             pthread_create(&threads[j], NULL, buildIndexThread, (void *) &indexCache[j]);
         }
