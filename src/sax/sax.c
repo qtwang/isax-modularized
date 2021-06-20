@@ -12,6 +12,7 @@ typedef struct SAXCache {
 
     ID size;
     unsigned int sax_length;
+//    unsigned int sax_cardinality;
 
     ID *shared_processed_counter;
     unsigned int block_size;
@@ -28,6 +29,7 @@ void *summarizations2SAX16Thread(void *cache) {
     SAXWord *saxs = saxCache->saxs;
 
     unsigned int sax_length = saxCache->sax_length;
+//    unsigned int sax_cardinality = saxCache->sax_cardinality;
 
     ID start_id, stop_id;
     ID current_sax_id, current_summarization_id, current_segment;

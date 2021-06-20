@@ -3,6 +3,7 @@
 //
 
 #include "index.h"
+#include "str.h"
 
 
 SAXWord *rootID2SAX(unsigned int id, unsigned int num_segments, unsigned int cardinality) {
@@ -23,7 +24,7 @@ unsigned int rootSAX2ID(SAXWord const *saxs, unsigned int num_segments, unsigned
 
     for (unsigned int i = 0; i < num_segments; ++i) {
         id <<= 1u;
-        id += (unsigned int) (saxs[i] >> offset);
+        id += (unsigned int) ((saxs[i] & root_mask) >> offset);
     }
 
     return id;
@@ -45,6 +46,19 @@ Index *initializeIndex(Config const *config) {
     index->database_size = config->database_size;
     index->num_leaves = 0;
 
+    index->cardinality_checker = 1u;
+    for (unsigned int i = 0; i < 8 - index->sax_cardinality; ++i) {
+        index->cardinality_checker = (index->cardinality_checker << 1) + 1;
+    }
+#ifdef DEBUG
+    clog_debug(CLOG(CLOGGER_ID), "index - cardinality_checker = %s", char2bin(index->cardinality_checker));
+#endif
+    // TODO to support cardinality > 8
+    root_mask = (SAXMask) (1u << 7);
+#ifdef DEBUG
+    clog_debug(CLOG(CLOGGER_ID), "index - root_mask = %s", char2bin(root_mask));
+#endif
+
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
@@ -55,11 +69,14 @@ Index *initializeIndex(Config const *config) {
     index->roots = malloc(sizeof(Node *) * index->roots_size);
     SAXMask *root_masks = aligned_alloc(128, sizeof(SAXMask) * config->sax_length);
     for (unsigned int i = 0; i < config->sax_length; ++i) {
-        root_masks[i] = (SAXMask) (1u << (config->sax_cardinality - 1));
+        // TODO to support cardinality > 8
+        root_masks[i] = (SAXMask) (1u << 7);
+//            root_masks[j] = (SAXMask) (1u << (config->sax_cardinality - 1));
     }
     for (unsigned int i = 0; i < index->roots_size; ++i) {
-        index->roots[i] = initializeNode(rootID2SAX(i, config->sax_length, config->sax_cardinality),
-                                         root_masks);
+        // TODO to support cardinality > 8
+        index->roots[i] = initializeNode(rootID2SAX(i, config->sax_length, 8), root_masks);
+//        index->roots[i] = initializeNode(rootID2SAX(i, config->sax_length, config->sax_cardinality), root_masks);
     }
 
 #ifdef FINE_TIMING
@@ -191,7 +208,7 @@ void logIndex(Config const *config, Index *index) {
             Value const *breakpoints2c = index->breakpoints + OFFSETS_BY_CARDINALITY[3];
 
             clog_debug(CLOG(CLOGGER_ID),
-                       "index - breakpoints-4 = %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f",
+                       "index - breakpoints-4 = %.0f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %.0f",
                        breakpoints2c[0], breakpoints2c[1], breakpoints2c[2], breakpoints2c[3], breakpoints2c[4],
                        breakpoints2c[5], breakpoints2c[6], breakpoints2c[7], breakpoints2c[8], breakpoints2c[9],
                        breakpoints2c[10], breakpoints2c[11], breakpoints2c[12], breakpoints2c[13], breakpoints2c[14],
@@ -201,7 +218,7 @@ void logIndex(Config const *config, Index *index) {
                 Value const *breakpoints2c = index->breakpoints + OFFSETS_BY_SEGMENTS[i] + OFFSETS_BY_CARDINALITY[3];
 
                 clog_debug(CLOG(CLOGGER_ID),
-                           "index - breakpoints-4 of seg-%d = %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f",
+                           "index - breakpoints-4 of seg-%d = %.0f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %.0f",
                            i, breakpoints2c[0], breakpoints2c[1], breakpoints2c[2], breakpoints2c[3], breakpoints2c[4],
                            breakpoints2c[5], breakpoints2c[6], breakpoints2c[7], breakpoints2c[8], breakpoints2c[9],
                            breakpoints2c[10], breakpoints2c[11], breakpoints2c[12], breakpoints2c[13],

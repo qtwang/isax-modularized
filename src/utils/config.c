@@ -253,7 +253,7 @@ Config *initializeConfig(int argc, char **argv) {
     assert(config->series_length % 8 == 0);
 //    assert(config->sax_length == 8 || config->sax_length == 16);
     assert(config->sax_length >= 8 || config->sax_length <= 16);
-    assert(config->sax_cardinality == 8);
+    assert(config->sax_cardinality > 0 && config->sax_cardinality <= 8);
     assert(config->database_size > 0);
     assert(config->query_size > 0);
     assert(config->index_block_size > 0);
@@ -267,6 +267,7 @@ Config *initializeConfig(int argc, char **argv) {
         assert(config->scale_factor > 0);
     }
 
+    // cpu_set_t is platform-dependent, what listed here is a relatively safe one
     assert(config->cpu_cores > 0 && config->numa_cores > 0 &&
            (config->numa_id == 0 || config->numa_id == 1) &&
            ((config->numa_cores == 2 && config->skipped_cores + config->cpu_cores <= 32) ||

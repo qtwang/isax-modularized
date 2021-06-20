@@ -22,9 +22,8 @@ __m256i *M256I_OFFSETS_BY_SEGMENTS;
 
 
 static unsigned int const OFFSETS_BY_CARDINALITY[9] = {
-        0, 3, 8, 17,
-        34, 67, 132, 261,
-        518
+        0, 3, 8, 17, 34,
+        67, 132, 261, 518
 };
 
 

@@ -16,6 +16,8 @@
 #include "sax.h"
 
 
+SAXMask root_mask;
+
 typedef struct Index {
     Node **roots;
 
@@ -34,6 +36,7 @@ typedef struct Index {
 
     unsigned int sax_length;
     unsigned int sax_cardinality;
+    SAXMask cardinality_checker;
 } Index;
 
 Node *route(Node const *parent, SAXWord const *sax, unsigned int num_segments);

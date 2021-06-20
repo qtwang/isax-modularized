@@ -35,13 +35,13 @@ Node *route(Node const *parent, SAXWord const *sax, unsigned int num_segments) {
 }
 
 
-int decideSplitSegmentByNextBit(Index *index, Node *parent, unsigned int num_segments) {
+int decideSplitSegmentByNextBit(Index *index, Node *parent, unsigned int num_segments, SAXMask cardinality_checker) {
     int segment_to_split = -1;
     int bsf_difference = (int) parent->size + 1, local_difference;
     SAXMask next_bit;
 
     for (unsigned int i = 0; i < num_segments; ++i) {
-        if (parent->masks[i] ^ 1u) {
+        if (parent->masks[i] ^ 1u && (parent->masks[i] & cardinality_checker) == 0) {
             local_difference = 0;
             next_bit = parent->masks[i] >> 1u;
 
@@ -97,13 +97,13 @@ int decideSplitSegmentByNextBit(Index *index, Node *parent, unsigned int num_seg
 }
 
 
-int decideSplitSegmentByDistribution(Index *index, Node *parent, unsigned int num_segments) {
+int decideSplitSegmentByDistribution(Index *index, Node *parent, unsigned int num_segments, SAXMask cardinality_checker) {
     int segment_to_split = -1;
     double bsf = VALUE_MAX, local_bsf, tmp, mean, std;
     SAXMask next_mask;
 
     for (unsigned int i = 0; i < num_segments; ++i) {
-        if (parent->masks[i] ^ 1u) {
+        if (parent->masks[i] ^ 1u && (parent->masks[i] & cardinality_checker) == 0) {
             next_mask = parent->masks[i] >> 1u;
             mean = 0, std = 0;
 
@@ -148,12 +148,12 @@ int decideSplitSegmentByDistribution(Index *index, Node *parent, unsigned int nu
 }
 
 
-int decideSplitSegmentBySigma(Index *index, Node *parent, unsigned int num_segments) {
+int decideSplitSegmentBySigma(Index *index, Node *parent, unsigned int num_segments, SAXMask cardinality_checker) {
     int segment_to_split = -1;
     double bsf = VALUE_MIN, tmp, mean, std;
 
     for (unsigned int i = 0; i < num_segments; ++i) {
-        if (parent->masks[i] ^ 1u) {
+        if (parent->masks[i] ^ 1u && (parent->masks[i] & cardinality_checker) == 0) {
             mean = 0, std = 0;
 
             for (unsigned int j = 0; j < parent->size; ++j) {
@@ -179,15 +179,15 @@ int decideSplitSegmentBySigma(Index *index, Node *parent, unsigned int num_segme
 
 
 void splitNode(Index *index, Node *parent, unsigned int num_segments, bool split_by_summarizations,
-               bool split_by_sigma) {
+               bool split_by_sigma, SAXMask cardinality_checker) {
     int segment_to_split;
 
     if (split_by_sigma) {
-        segment_to_split = decideSplitSegmentBySigma(index, parent, num_segments);
+        segment_to_split = decideSplitSegmentBySigma(index, parent, num_segments, cardinality_checker);
     } else if (split_by_summarizations) {
-        segment_to_split = decideSplitSegmentByDistribution(index, parent, num_segments);
+        segment_to_split = decideSplitSegmentByDistribution(index, parent, num_segments, cardinality_checker);
     } else {
-        segment_to_split = decideSplitSegmentByNextBit(index, parent, num_segments);
+        segment_to_split = decideSplitSegmentByNextBit(index, parent, num_segments, cardinality_checker);
     }
 
     if (segment_to_split == -1) {
@@ -215,6 +215,24 @@ void splitNode(Index *index, Node *parent, unsigned int num_segments, bool split
                    char2bin(parent->sax[13]), BITS_BY_MASK[parent->masks[13]],
                    char2bin(parent->sax[14]), BITS_BY_MASK[parent->masks[14]],
                    char2bin(parent->sax[15]), BITS_BY_MASK[parent->masks[15]]);
+    } else if (index->sax_length == 14) {
+        clog_debug(CLOG(CLOGGER_ID),
+                   "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
+                   segment_to_split,
+                   char2bin(parent->sax[0]), BITS_BY_MASK[parent->masks[0]],
+                   char2bin(parent->sax[1]), BITS_BY_MASK[parent->masks[1]],
+                   char2bin(parent->sax[2]), BITS_BY_MASK[parent->masks[2]],
+                   char2bin(parent->sax[3]), BITS_BY_MASK[parent->masks[3]],
+                   char2bin(parent->sax[4]), BITS_BY_MASK[parent->masks[4]],
+                   char2bin(parent->sax[5]), BITS_BY_MASK[parent->masks[5]],
+                   char2bin(parent->sax[6]), BITS_BY_MASK[parent->masks[6]],
+                   char2bin(parent->sax[7]), BITS_BY_MASK[parent->masks[7]],
+                   char2bin(parent->sax[8]), BITS_BY_MASK[parent->masks[8]],
+                   char2bin(parent->sax[9]), BITS_BY_MASK[parent->masks[9]],
+                   char2bin(parent->sax[10]), BITS_BY_MASK[parent->masks[10]],
+                   char2bin(parent->sax[11]), BITS_BY_MASK[parent->masks[11]],
+                   char2bin(parent->sax[12]), BITS_BY_MASK[parent->masks[12]],
+                   char2bin(parent->sax[13]), BITS_BY_MASK[parent->masks[13]]);
     } else if (index->sax_length == 12) {
         clog_debug(CLOG(CLOGGER_ID),
                    "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
@@ -231,6 +249,20 @@ void splitNode(Index *index, Node *parent, unsigned int num_segments, bool split
                    char2bin(parent->sax[9]), BITS_BY_MASK[parent->masks[9]],
                    char2bin(parent->sax[10]), BITS_BY_MASK[parent->masks[10]],
                    char2bin(parent->sax[11]), BITS_BY_MASK[parent->masks[11]]);
+    } else if (index->sax_length == 10) {
+        clog_debug(CLOG(CLOGGER_ID),
+                   "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
+                   segment_to_split,
+                   char2bin(parent->sax[0]), BITS_BY_MASK[parent->masks[0]],
+                   char2bin(parent->sax[1]), BITS_BY_MASK[parent->masks[1]],
+                   char2bin(parent->sax[2]), BITS_BY_MASK[parent->masks[2]],
+                   char2bin(parent->sax[3]), BITS_BY_MASK[parent->masks[3]],
+                   char2bin(parent->sax[4]), BITS_BY_MASK[parent->masks[4]],
+                   char2bin(parent->sax[5]), BITS_BY_MASK[parent->masks[5]],
+                   char2bin(parent->sax[6]), BITS_BY_MASK[parent->masks[6]],
+                   char2bin(parent->sax[7]), BITS_BY_MASK[parent->masks[7]],
+                   char2bin(parent->sax[8]), BITS_BY_MASK[parent->masks[8]],
+                   char2bin(parent->sax[9]), BITS_BY_MASK[parent->masks[9]]);
     } else if (index->sax_length == 8) {
         clog_debug(CLOG(CLOGGER_ID),
                    "index - split %d in %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d, %s/%d",
@@ -291,7 +323,9 @@ void *buildIndexThread(void *cache) {
 
         for (ID i = local_start_id; i < local_stop_id; ++i) {
             sax = index->saxs + SAX_SIMD_ALIGNED_LENGTH * i;
-            node = index->roots[rootSAX2ID(sax, index->sax_length, index->sax_cardinality)];
+            // TODO to support cardinality > 8
+            node = index->roots[rootSAX2ID(sax, index->sax_length, 8)];
+//            node = index->roots[rootSAX2ID(sax, index->sax_length, index->sax_cardinality)];
 
             pthread_mutex_lock(node->lock);
 
@@ -300,7 +334,7 @@ void *buildIndexThread(void *cache) {
 
                 if (node->size == indexCache->leaf_size) {
                     splitNode(index, parent, index->sax_length, indexCache->split_by_summarizations,
-                              indexCache->split_by_sigma);
+                              indexCache->split_by_sigma, index->cardinality_checker);
                 }
 
                 node = route(parent, sax, index->sax_length);
@@ -328,13 +362,11 @@ void buildIndex(Config const *config, Index *index) {
 
     pthread_t threads[num_threads];
     IndexCache indexCache[num_threads];
-
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
     TimeDiff time_diff;
     clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-
     ID shared_start_id = 0;
     for (unsigned int i = 0; i < num_threads; ++i) {
         indexCache[i].index = index;
@@ -351,7 +383,6 @@ void buildIndex(Config const *config, Index *index) {
     for (unsigned int i = 0; i < num_threads; ++i) {
         pthread_join(threads[i], NULL);
     }
-
 #ifdef FINE_TIMING
     clock_code = clock_gettime(CLK_ID, &stop_timestamp);
     getTimeDiff(&time_diff, start_timestamp, stop_timestamp);

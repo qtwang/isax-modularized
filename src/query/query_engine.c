@@ -464,7 +464,9 @@ void conductQueries(Config const *config, QuerySet const *querySet, Index const 
 #ifdef FINE_TIMING
         clock_code = clock_gettime(CLK_ID, &start_timestamp);
 #endif
-        node = index->roots[rootSAX2ID(query_sax, sax_length, sax_cardinality)];
+        // TODO to support cardinality > 8
+        node = index->roots[rootSAX2ID(query_sax, sax_length, 8)];
+//        node = index->roots[rootSAX2ID(query_sax, sax_length, sax_cardinality)];
         local_bsf = getBSF(answer);
 
         if (node != NULL) {

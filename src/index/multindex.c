@@ -3,6 +3,7 @@
 //
 
 #include "multindex.h"
+#include "str.h"
 
 
 void permuteValues(Value *values, ID *permutation, ID num_segments, ID length_segment) {
@@ -40,6 +41,19 @@ MultIndex *initializeMultIndex(Config const *config) {
     multindex->series_length = config->series_length;
     multindex->sax_length = config->sax_length;
     multindex->sax_cardinality = config->sax_cardinality;
+
+    SAXWord cardinality_checker = 1u;
+    for (unsigned int j = 0; j < 8 - config->sax_cardinality; ++j) {
+        cardinality_checker = (cardinality_checker << 1) + 1;
+    }
+#ifdef DEBUG
+    clog_debug(CLOG(CLOGGER_ID), "multindex - cardinality_checker = %s", char2bin(cardinality_checker));
+#endif
+    // TODO to support cardinality > 8
+    root_mask = (SAXMask) (1u << 7);
+#ifdef DEBUG
+    clog_debug(CLOG(CLOGGER_ID), "multindex - root_mask = %s", char2bin(root_mask));
+#endif
 
 #ifdef FINE_TIMING
     struct timespec start_timestamp, stop_timestamp;
@@ -170,6 +184,7 @@ MultIndex *initializeMultIndex(Config const *config) {
         multindex->indices[i]->series_length = config->series_length;
         multindex->indices[i]->sax_length = config->sax_length;
         multindex->indices[i]->sax_cardinality = config->sax_cardinality;
+        multindex->indices[i]->cardinality_checker = cardinality_checker;
 
         multindex->indices[i]->database_size = multindex->cluster_sizes[i];
         multindex->indices[i]->values = multindex->values + config->series_length * multindex->cluster_offsets[i];
@@ -182,11 +197,14 @@ MultIndex *initializeMultIndex(Config const *config) {
 
         SAXMask *root_masks = aligned_alloc(sizeof(__m256i), sizeof(SAXMask) * config->sax_length);
         for (unsigned int j = 0; j < config->sax_length; ++j) {
-            root_masks[j] = (SAXMask) (1u << (config->sax_cardinality - 1));
+            // TODO to support cardinality > 8
+            root_masks[j] = (SAXMask) (1u << 7);
+//            root_masks[j] = (SAXMask) (1u << (config->sax_cardinality - 1));
         }
         for (unsigned int j = 0; j < multindex->indices[i]->roots_size; ++j) {
-            multindex->indices[i]->roots[j] = initializeNode(rootID2SAX(j, config->sax_length, config->sax_cardinality),
-                                                             root_masks);
+            // TODO to support cardinality > 8
+            multindex->indices[i]->roots[j] = initializeNode(rootID2SAX(j, config->sax_length, 8), root_masks);
+//            multindex->indices[i]->roots[j] = initializeNode(rootID2SAX(j, config->sax_length, config->sax_cardinality), root_masks);
         }
 
         if (config->use_adhoc_breakpoints) {
